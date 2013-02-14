@@ -1,0 +1,287 @@
+<!doctype html>
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" href="lib/codemirror.css">
+	<link rel="stylesheet" href="funck.css">
+	<title>Funck</title>
+</head>
+<body>
+	<div class="box">
+		<form onsubmit="return false;">
+		<div class="param-table">
+			<span class="param">Left</span>
+			<input class="param oneliner" id="oneliner" value="t * ((t&gt;&gt;12|t&gt;&gt;8)&amp;63&amp;t&gt;&gt;4)" type="text" placeholder="Put your oneliner here...">
+		</div>
+		<div class="param-table">
+			<span class="param">Right</span>
+			<input class="param oneliner" id="oneliner2" type="text" placeholder="Leave this field empty for mono sound...">
+		</div>
+
+		<div id="aux-container">
+			<!--<textarea id="aux"></textarea> -->
+		</div>
+
+		<div class="param-table">
+			<span class="param" style="width:0%">Duration</span>
+			<input class="param" style="width:50px" name="duration" id="duration" value="30" type="text">
+			<span class="param" style="width:0%">Rate</span>
+			<select class="param" style="width:100px" name="rate" id="rate">
+				<option>44100</option>
+				<option>22050</option>
+				<option>11025</option>
+				<option selected="selected">8000</option>
+			</select>
+			<span class="param" style="width:50px">Depth</span>
+			<select class="param" style="width:200px" name="depth" id="depth">
+				<option value="fnorm">float normalized</option>
+				<option value="fclamp">float (-1.0/1.0)</option>
+				<option value="16bits">16bits (-32768/32767)</option>
+				<option value="8bits" selected="selected">8 bits (-128/127)</option>
+			</select>
+
+			<div class="param" style="width:100%">
+				<div style="float:right">
+				<input value="Generate" id="gen" type="submit" class="btn center">
+				</div>
+			</div>
+		</div>
+		
+
+		</form>
+		<div id="error" class="hide"></div>
+		<div class="player-div">
+			<div style="position:relative">
+				<span id="fftfreq" style="position:absolute;top:0px;padding:10px;"></span>
+			</div>
+			<canvas id="fft" width="900" height="200" onmousemove="showFrequency(event)" onmouseout="clearFrequency()"></canvas>
+			<div id="player"></div>
+		</div>
+		<div class="param-table">
+			<span class="param" style="width:80px">Permalink</span>
+			<input class="param oneliner" id="link" type="text" placeholder="hinthint: use this as an URL">
+		</div>
+		<div class="param-table">
+			<div class="param" style="width:80px;">
+				<span class="param json">JSON</span>
+				<button class="btn json" type="button" onclick="loadJSON()">LOAD</button>
+			</div>
+			<textarea class="param json" id="json" spellcheck="false"></textarea>
+		</div>
+	</div>
+<script src="lib/codemirror.js"></script>
+<script src="mode/javascript/javascript.js"></script>
+
+<script src="worker.js"></script>
+<script src="magic.js"></script>
+<script src="codecs.js"></script>
+
+<script>
+function isFullScreen(cm) {
+	return /\bCodeMirror-fullscreen\b/.test(cm.getWrapperElement().className);
+}
+
+function winHeight() {
+	return window.innerHeight || (document.documentElement || document.body).clientHeight;
+}
+
+function setFullScreen(cm, full) {
+	var wrap = cm.getWrapperElement();
+	if (full) {
+		wrap.className += " CodeMirror-fullscreen";
+		wrap.style.height = winHeight() + "px";
+		document.documentElement.style.overflow = "hidden";
+	} else {
+		wrap.className = wrap.className.replace(" CodeMirror-fullscreen", "");
+		wrap.style.height = "";
+		document.documentElement.style.overflow = "";
+	}
+	cm.refresh();
+}
+
+CodeMirror.on(window, "resize", function() {
+	var showing = document.body.getElementsByClassName("CodeMirror-fullscreen")[0];
+	if (!showing) return;
+	showing.CodeMirror.getWrapperElement().style.height = winHeight() + "px";
+});
+
+var codeMirror = CodeMirror(document.getElementById("aux-container"), {
+	lineNumbers: true,
+	theme: "funck",
+	extraKeys: {
+		"F11": function(cm) {
+			setFullScreen(cm, !isFullScreen(cm));
+		},
+		"Esc": function(cm) {
+			if (isFullScreen(cm)) setFullScreen(cm, false);
+		}
+	}
+});
+
+function play() {
+	//check if oneliner one is empty, but two filled
+	if (document.getElementById("oneliner").value == "" && document.getElementById("oneliner2").value != "") {
+		//copy string over
+		document.getElementById("oneliner").value = document.getElementById("oneliner2").value;
+		document.getElementById("oneliner2").value = "";
+	}
+
+	//create links
+	var obj = getParams();
+	document.getElementById("json").value = JSON.stringify(obj);
+	document.title = makeTitle(obj);
+	document.getElementById("link").value = makeLink(obj);
+	makeURL(obj, function(result) {
+		playDataURI(result);
+	});
+}
+
+function readURL() {
+	var idx = document.URL.indexOf('?');
+	if (idx != -1) {
+		var json = false;
+		var tempParams = new Object();
+		var parm = document.URL.substring(idx+1, document.URL.length);
+		try {
+			//COMPRESSED URL
+			parm_aux = b64_to_utf8(decodeURIComponent(parm)).decode_lzw();
+			tempParams = JSON.parse(parm_aux);
+			json = true;
+		}
+		catch(ex) {}
+		if (!json) {
+			//UNCOMPRESSED URL
+			var pairs = document.URL.substring(idx+1, document.URL.length).split('&');
+			for (var i=0; i< pairs.length; i++) {
+				var j = pairs[i].indexOf('=');
+				var name = pairs[i].substring(0, j);
+				var value = pairs[i].substring(j+1);
+				if (name == "oneliner" || name == "oneliner2" || name == "aux") {
+					value = decodeURIComponent(value);
+				}
+				tempParams[name] = value;
+			}
+		}
+		
+		return tempParams;
+	}
+}
+
+function getParams() {
+	var params = Object();
+	params.oneliner   = document.getElementById('oneliner').value;
+	params.oneliner2  = document.getElementById('oneliner2').value;
+	params.aux        = codeMirror.getValue();
+
+	params.duration   = document.getElementById('duration').value;
+	params.duration   = (params.duration < 1.0) ? 1.0 : params.duration;
+	document.getElementById('duration').value = params.duration;
+
+	params.depth      = document.getElementById('depth').value;
+	params.rate       = document.getElementById('rate').value;
+	if      (params.rate <= 8000 ) params.rate = 8000;
+	else if (params.rate <= 11025) params.rate = 11025;
+	else if (params.rate <= 22050) params.rate = 22050;
+	else                           params.rate = 44100;
+	document.getElementById('rate').value = params.rate;
+
+	return params;
+}
+
+function setParams(params) {
+	var shouldPlay = false;
+	if (params["rate"]) {
+		if      (params.rate <= 8000 ) params.rate = 8000;
+		else if (params.rate <= 11025) params.rate = 11025;
+		else if (params.rate <= 22050) params.rate = 22050;
+		else                           params.rate = 44100;
+		document.getElementById("rate").value = params.rate;
+	}
+	if (params["depth"]) {
+		document.getElementById("depth").value = params["depth"];
+	}
+	if (params["duration"]) {
+		document.getElementById("duration").value = params["duration"];
+	}
+	if (params["oneliner"]) {
+		document.getElementById("oneliner").value = params["oneliner"];
+		shouldPlay = true;
+	}
+	if (params["oneliner2"]) {
+		document.getElementById("oneliner2").value = params["oneliner2"];
+		shouldPlay = true;
+	}
+	if (params["aux"]) {
+		codeMirror.setValue(params["aux"]);
+	}
+	
+	return shouldPlay;
+}
+
+function makeTitle(obj) {
+	if (obj && obj.oneliner) {
+		var foo = obj.oneliner;
+		var one = (foo.length > 80) ? (foo.substring(0, 77) + "...") : foo;
+		return "Funck: " + one;
+	}
+	return "Funck";
+}
+
+function makeLink(obj) {
+	var link;
+	var idx = document.URL.indexOf('?');
+	if (idx != -1) {
+		link = document.URL.substring(0, idx);
+	}
+	else {
+		link = document.URL;
+	}
+
+	obj_str = JSON.stringify(obj);
+	obj_enc = obj_str.encode_lzw();
+	obj_bin = utf8_to_b64(obj_enc);
+	obj_url = encodeURIComponent(obj_bin);
+
+	var parm = "";
+	parm += "oneliner="    + encodeURIComponent(obj.oneliner);
+	parm += "&oneliner2="  + encodeURIComponent(obj.oneliner2);
+	parm += "&aux="        + encodeURIComponent(obj.aux);
+	parm += "&duration="   + encodeURIComponent(obj.duration);
+	parm += "&rate="       + encodeURIComponent(obj.rate);
+	parm += "&depth="      + encodeURIComponent(obj.depth);
+
+	if (obj_url.length < parm.length ) {
+		parm = obj_url;
+	}
+	
+	return link + "?" + parm;
+}
+
+function loadJSON() {
+	var json_str = document.getElementById("json").value;
+	try {
+		params = JSON.parse(json_str);
+		setParams(params);
+	}
+	catch(ex) {}
+}
+
+var x = document.createElement('audio');
+var hasAudio = (typeof(x.play) !== 'undefined');
+if (!hasAudio) {
+	alert("You don't seem to have a browser that supports audio. It's ok, you're not a bad person. But this app will now fail.");
+}
+
+document.getElementById("oneliner").focus();
+document.getElementById("gen").onclick = function () {
+	play();
+};
+
+params = readURL();
+if (params) {
+	var shouldPlay = setParams(params);
+	if (shouldPlay) play();
+}
+</script>
+</body>
+</html>

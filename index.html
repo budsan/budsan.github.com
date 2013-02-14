@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style> 
+body {
+	background: white;
+	font-family:  "Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+
+h1 {
+	font-size: 48px;
+	color: #333333;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 30px rgba(0, 0, 0, 0.075);
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+	border: 
+}
+
+a.opt {
+	font-size: 20px;
+	font-family:  "Helvetica Neue",Helvetica,Arial,sans-serif;
+	color: #0088cc;
+	text-decoration: none;
+
+	-webkit-transition: color 0.2s;
+	   -moz-transition: color 0.2s;
+	     -o-transition: color 0.2s;
+		transition: color 0.2s;
+}
+
+a.opt:focus {
+	outline: thin dotted #333;
+	outline: 5px auto -webkit-focus-ring-color;
+	outline-offset: -2px;
+}
+
+a:hover, a:active {
+	outline: 0;	
+}
+
+a:hover {
+	color: #005580;
+	text-decoration: underline;	
+}
+
+li.opt
+{
+	border-top:1px solid #E8E8E8;
+	padding-top: 12px;
+	padding-bottom: 12px;
+	color: #333333;
+	font-size: 18px;
+}
+
+.container {
+	width: 800px;
+	margin-left:auto;
+	margin-right:auto;
+
+	background-color: #F9F9F9;
+	border: 1px solid #EFEFEF;
+	border-radius: 4px 4px 4px 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05) inset;
+	margin-bottom: 20px;
+	padding: 19px;
+}
+
+
+</style>
+</head>
+<body>
+<div class="container">
+	<h1>budsan.github.com</h1>
+	<ul>
+		<li class="opt"><a class="opt" href="funck/">funck</a> / <a class="opt" href="funck/examples.html">examples</a> - The oneliner on steroids. Make your own sounds by writing javascript.</li>
+		<li class="opt"><a class="opt" href="http://github.com/budsan">github</a> - Take a look at my github page for more.</li>
+	</ul>
+</div>
+<script src="jquery-1.9.1.min.js"></script>
+<script>
+$('body').on('click', '[data-toggle="out"]', function ( e ) {
+	var $this = $(this);
+	$('div[data-toggle="out"]').each(function(i) {
+		if (this != $this[0]) $(this).addClass("out");
+	});
+
+	$this.toggleClass("out");
+});
+</script>
+</body>
+</html>
+
+
