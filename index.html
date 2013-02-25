@@ -3,23 +3,77 @@
 <head>
 <style> 
 body {
-	background: white;
-	font-family:  "Helvetica Neue",Helvetica,Arial,sans-serif;
+	background: #F2F2F2;
+	font-family: "Trebuchet MS", Helvetica, sans-serif
+}	
+
+.container {
+	width: 600px;
+	margin-left:auto;
+	margin-right:auto;
+
+	background-color: #FFFFFF;
+	border: 1px solid #EFEFEF;
+	border-radius: 8px 8px 8px 8px;
+	box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5) inset;
+	margin-bottom: 20px;
+	padding: 19px;
 }
 
-h1 {
-	font-size: 48px;
+div.title {
+	background:  #303030;
+	border-radius: 8px 8px 8px 8px;
+	padding: 8px;
+	margin-bottom: 20px;
+}
+
+img.title {
+	margin: 0px 4px;
+	vertical-align:text-bottom;
+}
+
+a.title {
+	font-size: 24px;
+	color: #808080;
+	margin: 0px 8px;
+	text-decoration: none;
+
+	-webkit-transition: color 0.2s;
+	   -moz-transition: color 0.2s;
+	     -o-transition: color 0.2s;
+		transition: color 0.2s;
+}
+
+a.title:hover {
+	color: #FFFFFF;
+}
+
+h2 {
 	color: #333333;
-	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 30px rgba(0, 0, 0, 0.075);
-	margin-left: auto;
-	margin-right: auto;
-	text-align: center;
-	border: 
+	font-size: 28px;
+	margin: 10px 5px;
+}
+
+ul {
+	margin: 0px;
+	padding: 0px 0px 0px 20px;
+}
+
+li.opt
+{
+	border-top:1px solid #E8E8E8;
+	padding-top: 12px;
+	padding-bottom: 12px;
+	color: #333333;
+	font-size: 16px;
+}
+
+a:hover, a:active {
+	outline: 0;	
 }
 
 a.opt {
 	font-size: 20px;
-	font-family:  "Helvetica Neue",Helvetica,Arial,sans-serif;
 	color: #0088cc;
 	text-decoration: none;
 
@@ -35,46 +89,23 @@ a.opt:focus {
 	outline-offset: -2px;
 }
 
-a:hover, a:active {
-	outline: 0;	
-}
-
-a:hover {
+a.opt:hover {
 	color: #005580;
 	text-decoration: underline;	
 }
-
-li.opt
-{
-	border-top:1px solid #E8E8E8;
-	padding-top: 12px;
-	padding-bottom: 12px;
-	color: #333333;
-	font-size: 18px;
-}
-
-.container {
-	width: 800px;
-	margin-left:auto;
-	margin-right:auto;
-
-	background-color: #F9F9F9;
-	border: 1px solid #EFEFEF;
-	border-radius: 4px 4px 4px 4px;
-	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05) inset;
-	margin-bottom: 20px;
-	padding: 19px;
-}
-
 
 </style>
 </head>
 <body>
 <div class="container">
-	<h1>budsan.github.com</h1>
+	<div class="title">
+		<img class="title" src="tux.png" alt="LOGO"><a class="title" href="./index.html">budsan's github</a>
+	</div>
+
+	<h2>projects</h2>
 	<ul>
-		<li class="opt"><a class="opt" href="funck/">funck</a> / <a class="opt" href="funck/examples.html">examples</a> - The oneliner on steroids. Make your own sounds by writing javascript.</li>
-		<li class="opt"><a class="opt" href="http://github.com/budsan">github</a> - Take a look at my github page for more.</li>
+		<li class="opt"><a class="opt" href="funck/"><strong>funck</strong></a> / <a class="opt" href="funck/examples.html">examples</a> / <a class="opt" href="https://github.com/budsan/funck">code</a> - The oneliner on steroids. Make your own sounds by writing javascript.</li>
+		<li class="opt"><a class="opt" href="http://github.com/budsan"><strong>github</strong></a> - Take a look at my github page for more.</li>
 	</ul>
 </div>
 </body>
