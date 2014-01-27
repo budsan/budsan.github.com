@@ -137,7 +137,7 @@ function play() {
 }
 
 function readURL() {
-	var idx = document.URL.indexOf('?');
+	var idx = document.URL.indexOf('#');
 	if (idx != -1) {
 		var json = false;
 		var tempParams = new Object();
@@ -229,7 +229,7 @@ function makeTitle(obj) {
 
 function makeLink(obj) {
 	var link;
-	var idx = document.URL.indexOf('?');
+	var idx = document.URL.indexOf('#');
 	if (idx != -1) {
 		link = document.URL.substring(0, idx);
 	}
@@ -254,7 +254,7 @@ function makeLink(obj) {
 		parm = obj_url;
 	}
 	
-	return link + "?" + parm;
+	return link + "#" + parm;
 }
 
 function loadJSON() {
