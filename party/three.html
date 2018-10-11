@@ -1,0 +1,68 @@
+template <class T> class Cua {
+	private:
+		 struct node_cua {
+		 	T info;
+		 	node_cua* seg;
+		};
+
+		int longitud;
+		node_cua* prim;
+		node_cua* ult;
+
+	public:
+
+	void mous_gran_cua(Cua &c, const T &k);
+}
+
+template <class T>
+void Cua::mous_gran_cua(Cua &c, const T &k)
+{
+	node_cua *prev = NULL;
+	node_cua *curr = c.prim;
+
+	while(curr != NULL) {
+
+		if (curr->info > k) {
+
+			//ELIMINACIO
+			bool noEliminat = true;
+
+			if (curr == c.prim) {
+				c.prim = curr->seg;
+				noEliminat = false;
+			}
+
+			if (curr == c.ult) {
+				c.ult = prev;
+				noEliminat = false;
+			}
+			
+			if (noEliminat) {
+				prev->seg = curr->seg;
+			}
+
+			c.longitud--;
+			
+			//INSERCIO
+
+			if (prim == NULL) {
+				prim = curr;
+			}
+			else {
+				ult->seg = curr;
+			}
+
+			ult = curr;
+			longitud++;
+
+			node_cua* aux = curr;
+			curr = curr->seg;
+			aux->prev = NULL;
+		}
+		else
+		{
+			prev = curr;
+			curr = curr->seg;
+		}
+	}
+}
