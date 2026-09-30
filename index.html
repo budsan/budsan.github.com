@@ -1,114 +1,64 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-<style> 
-body {
-	background: #F2F2F2;
-	font-family: "Trebuchet MS", Helvetica, sans-serif
-}	
-
-.container {
-	width: 600px;
-	margin-left:auto;
-	margin-right:auto;
-
-	background-color: #FFFFFF;
-	border: 1px solid #EFEFEF;
-	border-radius: 8px 8px 8px 8px;
-	box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5) inset;
-	margin-bottom: 20px;
-	padding: 19px;
-}
-
-div.title {
-	background:  #303030;
-	border-radius: 8px 8px 8px 8px;
-	padding: 8px;
-	margin-bottom: 20px;
-}
-
-img.title {
-	margin: 0px 4px;
-	vertical-align:text-bottom;
-}
-
-a.title {
-	font-size: 24px;
-	color: #808080;
-	margin: 0px 8px;
-	text-decoration: none;
-
-	-webkit-transition: color 0.2s;
-	   -moz-transition: color 0.2s;
-	     -o-transition: color 0.2s;
-		transition: color 0.2s;
-}
-
-a.title:hover {
-	color: #FFFFFF;
-}
-
-h2 {
-	color: #333333;
-	font-size: 28px;
-	margin: 10px 5px;
-}
-
-ul {
-	margin: 0px;
-	padding: 0px 0px 0px 20px;
-}
-
-li.opt
-{
-	border-top:1px solid #E8E8E8;
-	padding-top: 12px;
-	padding-bottom: 12px;
-	color: #333333;
-	font-size: 16px;
-}
-
-a:hover, a:active {
-	outline: 0;	
-}
-
-a.opt {
-	font-size: 20px;
-	color: #0088cc;
-	text-decoration: none;
-
-	-webkit-transition: color 0.2s;
-	   -moz-transition: color 0.2s;
-	     -o-transition: color 0.2s;
-		transition: color 0.2s;
-}
-
-a.opt:focus {
-	outline: thin dotted #333;
-	outline: 5px auto -webkit-focus-ring-color;
-	outline-offset: -2px;
-}
-
-a.opt:hover {
-	color: #005580;
-	text-decoration: underline;	
-}
-
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>funk — formula synth</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-	<div class="title">
-		<img class="title" src="tux.png" alt="LOGO"><a class="title" href="./index.html">budsan's github</a>
-	</div>
+  <header>
+    <h1>funk</h1>
+    <label>Rate
+      <select id="rate">
+        <option value="44100">44100 Hz</option>
+        <option value="22050">22050 Hz</option>
+      </select>
+    </label>
+    <label>Depth
+      <select id="depth">
+        <option value="float">float (-1.0 … 1.0)</option>
+        <option value="s16">16-bit signed (-32768 … 32767)</option>
+        <option value="s8">8-bit signed (-128 … 127)</option>
+      </select>
+    </label>
+    <label>Examples
+      <select id="preset">
+        <option value="">—</option>
+      </select>
+    </label>
+    <span class="hint">Variables: <code>t</code> sample count · <code>rate</code> samples/sec · all <code>Math</code> functions (<code>sin</code>, <code>PI</code>, …) plus <code>TAU</code> · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> play/stop</span>
+  </header>
 
-	<h2>projects</h2>
-	<ul>
-		<li class="opt"><a class="opt" href="funck/"><strong>funck</strong></a> / <a class="opt" href="funck/examples.html">examples</a> / <a class="opt" href="https://github.com/budsan/funck">code</a> - The oneliner on steroids. Make your own sounds by writing javascript.</li>
-		<li class="opt"><a class="opt" href="http://github.com/budsan"><strong>github</strong></a> - Take a look at my github page for more.</li>
-	</ul>
-</div>
+  <main id="editor-wrap">
+    <textarea id="code" spellcheck="false"></textarea>
+  </main>
+
+  <div id="status" class="ok">Ready</div>
+
+  <footer>
+    <div class="controls">
+      <button id="play" class="play" title="Play / Stop (Ctrl+Enter)">▶ Play</button>
+      <label class="vol">Volume
+        <input id="volume" type="range" min="0" max="100" value="50">
+        <span id="volval">50%</span>
+      </label>
+      <div class="readout">
+        <span>t = <b id="tval">0</b></span>
+        <span><b id="secs">0.00</b> s</span>
+        <span>peak <b id="peak">—</b></span>
+        <span class="legend"><i class="l"></i>left <i class="r"></i>right</span>
+      </div>
+    </div>
+    <canvas id="spectrum"></canvas>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
-
-
