@@ -58,6 +58,13 @@
         <small id="front-toggle-note">About 1 in 4 asks if the state requires a front plate (Yes/No).</small></span>
     </label>
 
+    <label class="toggle">
+      <input type="checkbox" id="names-toggle" role="switch">
+      <span class="track" aria-hidden="true"></span>
+      <span class="toggle-text"><strong>Show state names on plates</strong>
+        <small id="names-toggle-note">Off hides the printed state name until you answer (Easy and Medium).</small></span>
+    </label>
+
     <button type="button" id="start-btn" class="btn primary big">Start quiz</button>
     <p id="best-line" class="best" aria-live="polite"></p>
     <p id="load-error" class="error" role="alert" hidden></p>
@@ -146,6 +153,7 @@
 <footer class="foot">
   <p>Plate images from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>. &middot; <a href="../">&larr; Back to home</a></p>
   <p class="fine">Some plate images are from Wikimedia Commons under their respective free licences; see per-image credits.</p>
+  <p class="fine">Some plate images were edited: the state name was removed or the image was blurred.</p>
   <details class="credits">
     <summary>Image credits</summary>
     <ul id="credits-list"></ul>

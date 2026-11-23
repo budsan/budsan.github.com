@@ -51,12 +51,13 @@
     frontNote: $('front-toggle-note'), info: $('info'), infoState: $('info-state'), infoLabel: $('info-label'),
     infoNick: $('info-nick'), infoFactWrap: $('info-fact-wrap'), infoFact: $('info-fact'), infoMore: $('info-more'),
     infoDesigns: $('info-designs'), infoFront: $('info-front'),
+    namesToggle: $('names-toggle'), namesNote: $('names-toggle-note'),
     strip: $('info-strip'), stripList: $('strip-list'), share: $('share-btn'), shareMsg: $('share-msg'),
     streak: $('streak'), streakN: $('streak-n'), frame: $('plate-frame'), ring: $('ring'),
     rankSub: $('rank-sub'), streakFinal: $('streak-final')
   };
 
-  var settings = { diff: 'easy', len: '10', front: false };
+  var settings = { diff: 'easy', len: '10', front: false, names: false };
   var S = null; // current run
   var imageCache = {};
 
@@ -75,7 +76,7 @@
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
-  function bestKey() { return 'platesquiz.v2.best.' + settings.diff + '.' + settings.len + (settings.front ? '.front' : ''); }
+  function bestKey() { return 'platesquiz.v2.best.' + settings.diff + '.' + settings.len + (settings.front ? '.front' : '') + (settings.names ? '.names' : ''); }
   function getBest() {
     try {
       var v = JSON.parse(localStorage.getItem(bestKey()));
@@ -229,7 +230,7 @@
     var n = settings.len === 'all' ? ALL_PLATES.length : Math.min(parseInt(settings.len, 10), ALL_PLATES.length);
     S = {
       diff: settings.diff, plates: pickPlates(n), idx: 0, score: 0,
-      answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
+      names: settings.names, answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
     };
     show(el.quiz);
     el.diffLabel.textContent = DIFF_LABEL[S.diff];
@@ -304,10 +305,12 @@
     el.input.value = '';
     el.input.disabled = true; el.submitBtn.disabled = true;
 
+    cancelReveal();
     loadForQuestion(q, hard).then(function (res) {
       if (token !== S.token) return;
       var img = res.img;
       if (!img) { skipBroken(q); return; }
+      q.hasNl = !!res.nl;
       clear(el.holder);
       if (hard && res.real) {
         var bi = document.createElement('img');
@@ -316,6 +319,10 @@
         el.holder.appendChild(bi);
       } else if (hard) {
         el.holder.appendChild(renderBlurred(img));
+      } else if (res.nl) {
+        var nl = sharpImg({ img: q.plate.nameless }, '');
+        nl.alt = 'A US license plate';
+        el.holder.appendChild(nl);
       } else {
         var sh = sharpImg(plate, '');
         sh.alt = 'A US license plate';
@@ -323,7 +330,6 @@
       }
       el.hint.textContent = hard ? 'Colours, layout and graphics only: the text is unreadable.' : '';
       S.ready = true;
-      if (hard) loadImage(plate.img);
       if (isFront) buildChoices('Yes', ['Yes', 'No']);
       else if (S.diff === 'easy') buildChoices(state);
       else { el.input.disabled = false; el.submitBtn.disabled = false; el.input.focus(); }
@@ -331,22 +337,76 @@
     });
   }
 
+  function wantsNameless(q) {
+    return !S.names && q.type !== 'front' && !!q.plate.nameless;
+  }
+
   function preloadNext() {
     var nxt = S.plates[S.idx + 1];
     if (!nxt) return;
     loadImage(nxt.plate.img);
+    if (wantsNameless(nxt)) loadImage(nxt.plate.nameless);
     if (S.diff === 'hard' && nxt.plate.blurImg) loadImage(nxt.plate.blurImg);
   }
 
+  // Resolves {img: full image, nl: nameless image or null, real: blurImg loaded}
   function loadForQuestion(q, hard) {
+    var fullP = loadImage(q.plate.img);
+    var nlP = wantsNameless(q) ? loadImage(q.plate.nameless) : Promise.resolve(null);
+    var blurP = Promise.resolve(null);
     if (hard && q.plate.blurImg) {
       var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 7000); });
-      return Promise.race([loadImage(q.plate.blurImg), timeout]).then(function (im) {
-        if (im) return { img: im, real: true };
-        return loadImage(q.plate.img).then(function (i2) { return { img: i2, real: false }; });
-      });
+      blurP = Promise.race([loadImage(q.plate.blurImg), timeout]);
     }
-    return loadImage(q.plate.img).then(function (im) { return { img: im, real: false }; });
+    return Promise.all([fullP, nlP, blurP]).then(function (r) {
+      return { img: r[0], nl: r[1], real: !!r[2] };
+    });
+  }
+
+  /* ---------- plate reveal (crossfades) ---------- */
+  var revealTimers = [];
+  function cancelReveal() {
+    revealTimers.forEach(clearTimeout);
+    revealTimers = [];
+  }
+  function later(fn, ms) {
+    var tok = S && S.token;
+    revealTimers.push(setTimeout(function () { if (S && S.token === tok) fn(); }, ms));
+  }
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function layer(src, alt) {
+    var im = document.createElement('img');
+    im.className = 'layer'; im.src = src; im.alt = alt; im.draggable = false;
+    return im;
+  }
+  function fadeTo(node, dur, done) {
+    if (reducedMotion() || !dur) {
+      clear(el.holder); el.holder.appendChild(node);
+      if (done) done();
+      return;
+    }
+    node.style.opacity = '0';
+    el.holder.appendChild(node);
+    void node.offsetWidth;
+    node.style.transition = 'opacity ' + dur + 'ms ease';
+    node.style.opacity = '1';
+    later(function () {
+      Array.prototype.slice.call(el.holder.children).forEach(function (c) { if (c !== node) el.holder.removeChild(c); });
+      if (done) done();
+    }, dur + 30);
+  }
+  function revealPlate(q) {
+    var fullAlt = 'License plate: ' + q.state;
+    var full = layer(q.plate.img, fullAlt);
+    if (q.hasNl && !(reducedMotion())) {
+      if (S.diff === 'hard') {
+        fadeTo(layer(q.plate.nameless, 'License plate with the state name removed'), 600, function () {
+          later(function () { fadeTo(full, 600); }, 700);
+        });
+      } else fadeTo(full, 600);
+    } else if (S.diff === 'hard' || q.hasNl) fadeTo(full, 600);
   }
 
   function buildChoices(correct, fixed) {
@@ -400,9 +460,8 @@
       closeSuggest();
       el.typeMsg.hidden = true;
     }
-    if (S.diff === 'hard' && !isFront) {
-      clear(el.holder);
-      el.holder.appendChild(sharpImg(cur.plate, cur.state));
+    if (!isFront) {
+      revealPlate(cur);
       el.hint.textContent = '';
     }
     el.next.textContent = S.idx + 1 >= S.plates.length ? 'See results' : 'Next';
@@ -463,6 +522,7 @@
       cap.textContent = name;
       b.appendChild(im); b.appendChild(cap);
       b.addEventListener('click', function () {
+        cancelReveal();
         clear(el.holder);
         el.holder.appendChild(sharpImg(v, q.state + (v.label ? ' (' + v.label + ')' : '')));
         el.infoLabel.textContent = v.label || '';
@@ -667,6 +727,7 @@
   wireGroup(el.diffGroup, 'diff', 'diff');
   wireGroup(el.lenGroup, 'len', 'len');
   el.frontToggle.addEventListener('change', function () { settings.front = el.frontToggle.checked; updateBestLine(); });
+  el.namesToggle.addEventListener('change', function () { settings.names = el.namesToggle.checked; updateBestLine(); });
   el.startBtn.addEventListener('click', startRun);
   el.next.addEventListener('click', next);
   el.again.addEventListener('click', startRun);
@@ -719,6 +780,10 @@
   if (!anyFront) {
     el.frontToggle.disabled = true;
     el.frontNote.textContent = 'Not available (no front-plate data).';
+  }
+  if (!ALL_PLATES.some(function (p) { return !!p.nameless; })) {
+    el.namesToggle.disabled = true;
+    el.namesNote.textContent = 'Not available (no name-free images).';
   }
   updateBestLine();
   if (!ALL_PLATES.length) {

@@ -272,3 +272,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 }
 
 #share-btn{flex-basis:100%}
+
+.plate-holder img,.plate-holder canvas{position:absolute;inset:0}
+.plate-holder img.layer{animation:none}
+.toggle + .toggle{margin-top:8px}
