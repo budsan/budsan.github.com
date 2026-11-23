@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#efe9db" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f131a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Crect x='1' y='1' width='62' height='38' rx='6' fill='%23f7f3e6' stroke='%231d3e8a' stroke-width='3'/%3E%3Crect x='5' y='5' width='54' height='30' rx='3' fill='none' stroke='%231d3e8a' stroke-width='1' opacity='.5'/%3E%3Ctext x='32' y='27' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='19' text-anchor='middle' fill='%231d3e8a'%3EUSA%3C/text%3E%3Ccircle cx='9' cy='9' r='2' fill='%23888'/%3E%3Ccircle cx='55' cy='9' r='2' fill='%23888'/%3E%3C/svg%3E">
+<meta name="description" content="Name the US state from its license plate. Easy, medium and hard modes with plate trivia.">
+<title>US License Plate Quiz</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="start">
+<main class="app">
+  <header class="top">
+    <h1 class="mark" aria-label="US License Plate Quiz">
+      <span class="mark-bolt l" aria-hidden="true"></span><span class="mark-bolt r" aria-hidden="true"></span>
+      <span class="mark-top" aria-hidden="true">United States</span>
+      <span class="mark-main" aria-hidden="true">Plate Quiz</span>
+      <span class="mark-sub" aria-hidden="true">&#9733; 50 states &#9733;</span>
+    </h1>
+    <p class="tagline">Can you name the state from its plate?</p>
+  </header>
+
+  <!-- START -->
+  <section id="screen-start" class="card" aria-labelledby="start-h">
+    <h2 id="start-h" class="sr-only">Choose your challenge</h2>
+
+    <fieldset class="group">
+      <legend>Difficulty</legend>
+      <div class="seg seg-diff" id="diff-group">
+        <button type="button" class="seg-btn" data-diff="easy" aria-pressed="true">
+          <span class="pips" data-n="1" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong>Easy</strong><span class="sub">Pick from 4 choices</span></button>
+        <button type="button" class="seg-btn" data-diff="medium" aria-pressed="false">
+          <span class="pips" data-n="2" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong>Medium</strong><span class="sub">Type the state</span></button>
+        <button type="button" class="seg-btn" data-diff="hard" aria-pressed="false">
+          <span class="pips" data-n="3" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong>Hard</strong><span class="sub">Blurred plate, type it</span></button>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Round length</legend>
+      <div class="seg seg-len" id="len-group">
+        <button type="button" class="seg-btn" data-len="10" aria-pressed="true"><strong>10</strong><span class="sub">plates</span></button>
+        <button type="button" class="seg-btn" data-len="25" aria-pressed="false"><strong>25</strong><span class="sub">plates</span></button>
+        <button type="button" class="seg-btn" data-len="all" aria-pressed="false"><strong>All</strong><span class="sub" id="all-count">plates</span></button>
+      </div>
+    </fieldset>
+
+    <label class="toggle">
+      <input type="checkbox" id="front-toggle" role="switch">
+      <span class="track" aria-hidden="true"></span>
+      <span class="toggle-text"><strong>Include front-plate questions</strong>
+        <small id="front-toggle-note">About 1 in 4 asks if the state requires a front plate (Yes/No).</small></span>
+    </label>
+
+    <button type="button" id="start-btn" class="btn primary big">Start quiz</button>
+    <p id="best-line" class="best" aria-live="polite"></p>
+    <p id="load-error" class="error" role="alert" hidden></p>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="screen-quiz" class="card" aria-label="Quiz" hidden>
+    <div class="hud">
+      <span id="progress" class="pill">1/10</span>
+      <span id="diff-label" class="pill subtle">Easy</span>
+      <span class="grow"></span>
+      <span id="streak" class="pill streak" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M13.5 1s1 4-2 7c-2 2-5 4-5 8a7 7 0 0 0 14 0c0-3-1.5-5-3-6.500.3 2-.5 3.500-1.500 4C15 9 14 4 13.500 1z"/></svg><span id="streak-n">2</span></span>
+      <span id="score" class="pill score">Score 0</span>
+    </div>
+    <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+
+    <div class="plate-frame" id="plate-frame">
+      <div id="plate-holder" class="plate-holder"></div>
+    </div>
+    <p id="q-prompt" class="prompt" hidden></p>
+    <p id="plate-hint" class="hint"></p>
+
+    <div id="easy-area" class="choices" role="group" aria-label="Answer choices" hidden></div>
+
+    <form id="type-area" class="typing" autocomplete="off" hidden>
+      <label for="answer" class="sr-only">State name</label>
+      <div class="combo">
+        <input id="answer" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+               aria-controls="suggest" autocomplete="off" autocapitalize="words" autocorrect="off"
+               spellcheck="false" enterkeyhint="go" placeholder="Type a state name...">
+        <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+      </div>
+      <button type="submit" id="submit-btn" class="btn primary">Answer</button>
+    </form>
+    <p id="type-msg" class="hint warn" hidden></p>
+
+    <div id="feedback" class="feedback" role="status" aria-live="assertive"></div>
+    <button type="button" id="next-btn" class="btn primary big" hidden>Next</button>
+
+    <aside id="info" class="info" aria-label="About this state's plate" hidden>
+      <div class="info-head">
+        <h3><span id="info-state"></span></h3>
+        <span id="info-label" class="chip" hidden></span>
+      </div>
+      <p id="info-nick" class="nick" hidden></p>
+      <div id="info-fact-wrap" class="fact" hidden>
+        <p class="eyebrow">Did you know?</p>
+        <p id="info-fact"></p>
+        <button type="button" id="info-more" class="btn small">Another fact</button>
+      </div>
+      <p id="info-designs" class="designs" hidden></p>
+      <p id="info-front" class="front" hidden></p>
+      <div id="info-strip" class="strip" hidden>
+        <p class="eyebrow">Compare designs</p>
+        <div id="strip-list" class="strip-list" role="group" aria-label="Plate designs for this state"></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- END -->
+  <section id="screen-end" class="card end" aria-labelledby="end-h" hidden>
+    <h2 id="end-h" class="sr-only">Results</h2>
+    <div class="ring" id="ring" style="--p:0">
+      <div class="ring-in">
+        <div id="final-score" class="final-score">0/0</div>
+        <div id="final-pct" class="final-pct">0%</div>
+      </div>
+    </div>
+    <p id="rank" class="rank"></p>
+    <p id="rank-sub" class="rank-sub"></p>
+    <p id="streak-final" class="best"></p>
+    <p id="best-result" class="best"></p>
+    <div id="missed-wrap" hidden>
+      <h3>Missed plates</h3>
+      <ul id="missed" class="missed"></ul>
+    </div>
+    <div class="row">
+      <button type="button" id="again-btn" class="btn primary">Play again</button>
+      <button type="button" id="change-btn" class="btn">Change difficulty</button>
+      <button type="button" id="share-btn" class="btn">Share result</button>
+    </div>
+    <p id="share-msg" class="best" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Plate images from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>. &middot; <a href="../">&larr; Back to home</a></p>
+  <p class="fine">Some plate images are from Wikimedia Commons under their respective free licences; see per-image credits.</p>
+  <details class="credits">
+    <summary>Image credits</summary>
+    <ul id="credits-list"></ul>
+  </details>
+</footer>
+
+<script src="data.js"></script>
+<script src="facts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
