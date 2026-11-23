@@ -57,7 +57,7 @@
     rankSub: $('rank-sub'), streakFinal: $('streak-final')
   };
 
-  var settings = { diff: 'easy', len: '10', front: false, names: false };
+  var settings = { diff: 'easy', len: '25', front: false, names: false };
   var S = null; // current run
   var imageCache = {};
 
@@ -212,12 +212,30 @@
         if (qs[b].state !== qs[a - 1].state) { var tmp = qs[a]; qs[a] = qs[b]; qs[b] = tmp; break; }
       }
     }
+    return applyFront(qs);
+  }
+
+  function applyFront(qs) {
     if (settings.front) {
       var elig = [];
       qs.forEach(function (q, i) { if (hasFront(q.state)) elig.push(i); });
       shuffle(elig).slice(0, Math.round(qs.length / 4)).forEach(function (i) { qs[i].type = 'front'; });
     }
     return qs;
+  }
+
+  // The state's primary plate: the entry with primary:true, else the first entry in file order.
+  var PRIMARY = {};
+  Object.keys(VERSIONS).forEach(function (k) {
+    PRIMARY[k] = VERSIONS[k].filter(function (p) { return p.primary === true; })[0] || VERSIONS[k][0];
+  });
+
+  // 25 / 50: n distinct states at random, each with its primary plate only.
+  function pickPrimary(n) {
+    var states = shuffle(Object.keys(PRIMARY).filter(function (k) { return !failedImgs[PRIMARY[k].img]; }));
+    return applyFront(states.slice(0, n).map(function (k) {
+      return { type: 'state', plate: PRIMARY[k], state: k };
+    }));
   }
 
   function startRun() {
@@ -227,9 +245,10 @@
       return;
     }
     el.loadError.hidden = true;
-    var n = settings.len === 'all' ? ALL_PLATES.length : Math.min(parseInt(settings.len, 10), ALL_PLATES.length);
+    var primaryMode = settings.len !== 'all';
+    var n = primaryMode ? Math.min(parseInt(settings.len, 10), Object.keys(PRIMARY).length) : ALL_PLATES.length;
     S = {
-      diff: settings.diff, plates: pickPlates(n), idx: 0, score: 0,
+      diff: settings.diff, primaryMode: primaryMode, plates: primaryMode ? pickPrimary(n) : pickPlates(n), idx: 0, score: 0,
       names: settings.names, answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
     };
     show(el.quiz);
@@ -241,7 +260,10 @@
     failedImgs[q.plate.img] = true;
     var used = {}, usedStates = {};
     S.plates.forEach(function (x) { used[x.plate.img] = true; usedStates[x.state] = true; });
-    var cands = ALL_PLATES.filter(function (p) { return !used[p.img] && !failedImgs[p.img]; });
+    var cands = S.primaryMode
+      ? Object.keys(PRIMARY).filter(function (k) { return !usedStates[k] && !failedImgs[PRIMARY[k].img]; })
+          .map(function (k) { return PRIMARY[k]; })
+      : ALL_PLATES.filter(function (p) { return !used[p.img] && !failedImgs[p.img]; });
     var fresh = cands.filter(function (p) { return !usedStates[STATE_BY_LOWER[String(p.state).toLowerCase()]]; });
     var pool = fresh.length ? fresh : cands;
     if (pool.length) {

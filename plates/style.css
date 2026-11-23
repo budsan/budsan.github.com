@@ -276,3 +276,5 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 .plate-holder img,.plate-holder canvas{position:absolute;inset:0}
 .plate-holder img.layer{animation:none}
 .toggle + .toggle{margin-top:8px}
+
+.help{margin:8px 0 0;color:var(--muted);font-size:.85rem;line-height:1.35}
