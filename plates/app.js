@@ -52,6 +52,7 @@
     infoNick: $('info-nick'), infoFactWrap: $('info-fact-wrap'), infoFact: $('info-fact'), infoMore: $('info-more'),
     infoDesigns: $('info-designs'), infoFront: $('info-front'),
     namesToggle: $('names-toggle'), namesNote: $('names-toggle-note'),
+    blurBtn: $('blur-btn'),
     strip: $('info-strip'), stripList: $('strip-list'), share: $('share-btn'), shareMsg: $('share-msg'),
     streak: $('streak'), streakN: $('streak-n'), frame: $('plate-frame'), ring: $('ring'),
     rankSub: $('rank-sub'), streakFinal: $('streak-final')
@@ -341,22 +342,46 @@
         el.holder.appendChild(bi);
       } else if (hard) {
         el.holder.appendChild(renderBlurred(img));
-      } else if (res.nl) {
-        var nl = sharpImg({ img: q.plate.nameless }, '');
-        nl.alt = 'A US license plate';
-        el.holder.appendChild(nl);
       } else {
-        var sh = sharpImg(plate, '');
-        sh.alt = 'A US license plate';
-        el.holder.appendChild(sh);
+        showBase(q, res);
       }
       el.hint.textContent = hard ? 'Colours, layout and graphics only: the text is unreadable.' : '';
       S.ready = true;
+      syncBlurBtn();
       if (isFront) buildChoices('Yes', ['Yes', 'No']);
       else if (S.diff === 'easy') buildChoices(state);
       else { el.input.disabled = false; el.submitBtn.disabled = false; el.input.focus(); }
       preloadNext();
     });
+  }
+
+  /* ---------- blur toggle (Easy / Medium) ---------- */
+  var blurOn = false;
+  try { blurOn = localStorage.getItem('platesquiz.v2.blur') === '1'; } catch (e) { /* ignore */ }
+  function canBlur(q) { return !!q && S && S.diff !== 'hard' && q.type !== 'front' && !!q.plate.blurImg; }
+  function baseNode(q) {
+    if (blurOn && canBlur(q)) {
+      var bi = document.createElement('img');
+      bi.className = 'blurred'; bi.src = q.plate.blurImg; bi.alt = 'Blurred license plate'; bi.draggable = false;
+      q.shownBlur = true;
+      return bi;
+    }
+    q.shownBlur = false;
+    var im = sharpImg(q.hasNl ? { img: q.plate.nameless } : q.plate, '');
+    im.alt = 'A US license plate';
+    return im;
+  }
+  function showBase(q) {
+    clear(el.holder);
+    el.holder.appendChild(baseNode(q));
+  }
+  function syncBlurBtn() {
+    var q = S && S.current;
+    var show = canBlur(q);
+    el.blurBtn.hidden = !show;
+    el.blurBtn.setAttribute('aria-pressed', blurOn ? 'true' : 'false');
+    el.blurBtn.textContent = blurOn ? 'Unblur plate' : 'Blur plate';
+    el.blurBtn.disabled = !!(S && S.answered);
   }
 
   function wantsNameless(q) {
@@ -368,7 +393,7 @@
     if (!nxt) return;
     loadImage(nxt.plate.img);
     if (wantsNameless(nxt)) loadImage(nxt.plate.nameless);
-    if (S.diff === 'hard' && nxt.plate.blurImg) loadImage(nxt.plate.blurImg);
+    if (nxt.plate.blurImg && (S.diff === 'hard' || blurOn)) loadImage(nxt.plate.blurImg);
   }
 
   // Resolves {img: full image, nl: nameless image or null, real: blurImg loaded}
@@ -376,7 +401,7 @@
     var fullP = loadImage(q.plate.img);
     var nlP = wantsNameless(q) ? loadImage(q.plate.nameless) : Promise.resolve(null);
     var blurP = Promise.resolve(null);
-    if (hard && q.plate.blurImg) {
+    if ((hard || (blurOn && canBlur(q))) && q.plate.blurImg) {
       var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 7000); });
       blurP = Promise.race([loadImage(q.plate.blurImg), timeout]);
     }
@@ -422,13 +447,13 @@
   function revealPlate(q) {
     var fullAlt = 'License plate: ' + q.state;
     var full = layer(q.plate.img, fullAlt);
-    if (q.hasNl && !(reducedMotion())) {
+    if ((q.hasNl || q.shownBlur) && !(reducedMotion())) {
       if (S.diff === 'hard') {
         fadeTo(layer(q.plate.nameless, 'License plate with the state name removed'), 600, function () {
           later(function () { fadeTo(full, 600); }, 700);
         });
       } else fadeTo(full, 600);
-    } else if (S.diff === 'hard' || q.hasNl) fadeTo(full, 600);
+    } else if (S.diff === 'hard' || q.hasNl || q.shownBlur) fadeTo(full, 600);
   }
 
   function buildChoices(correct, fixed) {
@@ -450,6 +475,7 @@
   function answer(given) {
     if (!S || S.answered || !S.ready) return;
     S.answered = true;
+    el.blurBtn.disabled = true;
     var cur = S.current;
     var isFront = cur.type === 'front';
     var buttons = S.diff === 'easy' || isFront;
@@ -748,6 +774,15 @@
   }
   wireGroup(el.diffGroup, 'diff', 'diff');
   wireGroup(el.lenGroup, 'len', 'len');
+  el.blurBtn.addEventListener('click', function () {
+    var q = S && S.current;
+    if (!S || S.answered || !S.ready || !canBlur(q)) return;
+    blurOn = !blurOn;
+    try { localStorage.setItem('platesquiz.v2.blur', blurOn ? '1' : '0'); } catch (e) { /* ignore */ }
+    var node = baseNode(q);
+    fadeTo(node, 250);
+    syncBlurBtn();
+  });
   el.frontToggle.addEventListener('change', function () { settings.front = el.frontToggle.checked; updateBestLine(); });
   el.namesToggle.addEventListener('change', function () { settings.names = el.namesToggle.checked; updateBestLine(); });
   el.startBtn.addEventListener('click', startRun);

@@ -278,3 +278,9 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 .toggle + .toggle{margin-top:8px}
 
 .help{margin:8px 0 0;color:var(--muted);font-size:.85rem;line-height:1.35}
+
+.blur-row{display:flex;justify-content:center;margin:6px 0 2px}
+#blur-btn{font:inherit;font-size:.88rem;font-weight:600;padding:6px 14px;border-radius:999px;border:1px solid var(--line,rgba(128,128,128,.4));background:transparent;color:inherit;cursor:pointer}
+#blur-btn[aria-pressed="true"]{background:var(--accent,#2a6df4);border-color:transparent;color:#fff}
+#blur-btn:disabled{opacity:.45;cursor:default}
+#blur-btn:focus-visible{outline:2px solid var(--accent,#2a6df4);outline-offset:2px}
