@@ -52,7 +52,7 @@
     infoNick: $('info-nick'), infoFactWrap: $('info-fact-wrap'), infoFact: $('info-fact'), infoMore: $('info-more'),
     infoDesigns: $('info-designs'), infoFront: $('info-front'),
     namesToggle: $('names-toggle'), namesNote: $('names-toggle-note'),
-    blurBtn: $('blur-btn'),
+    blurBtn: $('blur-btn'), home: $('home-btn'),
     strip: $('info-strip'), stripList: $('strip-list'), share: $('share-btn'), shareMsg: $('share-msg'),
     streak: $('streak'), streakN: $('streak-n'), frame: $('plate-frame'), ring: $('ring'),
     rankSub: $('rank-sub'), streakFinal: $('streak-final')
@@ -73,6 +73,7 @@
   }
   function show(screen) {
     [el.start, el.quiz, el.end].forEach(function (s) { s.hidden = s !== screen; });
+    if (el.home) el.home.hidden = screen === el.start;
     document.body.setAttribute('data-screen', screen === el.start ? 'start' : screen === el.quiz ? 'quiz' : 'end');
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
@@ -788,6 +789,15 @@
   el.startBtn.addEventListener('click', startRun);
   el.next.addEventListener('click', next);
   el.again.addEventListener('click', startRun);
+  el.home.addEventListener('click', function () {
+    if (S) S.token++;
+    cancelReveal();
+    S = null;
+    closeSuggest();
+    show(el.start);
+    updateBestLine();
+    window.scrollTo(0, 0);
+  });
 
   function pageUrl() {
     try { return location.origin + location.pathname; } catch (e) { return ''; }

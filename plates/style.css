@@ -284,3 +284,9 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 #blur-btn[aria-pressed="true"]{background:var(--accent,#2a6df4);border-color:transparent;color:#fff}
 #blur-btn:disabled{opacity:.45;cursor:default}
 #blur-btn:focus-visible{outline:2px solid var(--accent,#2a6df4);outline-offset:2px}
+
+.top{position:relative}
+.home-btn{position:absolute;left:0;top:0;font:inherit;font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer}
+.home-btn:hover{background:rgba(128,128,128,.14)}
+.home-btn:focus-visible{outline:2px solid var(--accent,#2a6df4);outline-offset:2px}
+@media (max-width:560px){.home-btn{position:static;display:block;margin:0 auto 10px}.home-btn[hidden]{display:none}}
