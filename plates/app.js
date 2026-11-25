@@ -62,7 +62,7 @@
     rankSub: $('rank-sub'), streakFinal: $('streak-final'),
     explore: $('screen-explore'), exploreBtn: $('explore-btn'), viewGroup: $('view-group'),
     exploreList: $('explore-list'), exploreCount: $('explore-count'), exploreFilter: $('explore-filter'),
-    exploreEmpty: $('explore-empty'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
+    exploreEmpty: $('explore-empty'), namesWrap: $('names-wrap'), hideNames: $('hide-names'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
   };
 
   var settings = { diff: 'easy', len: '25', front: false, names: false };
@@ -896,7 +896,11 @@
 
   /* ---------- explore all plates ---------- */
   var exploreView = 'state';
-  try { if (localStorage.getItem('platesquiz.v2.explore') === 'grid') exploreView = 'grid'; } catch (e) { /* ignore */ }
+  var exploreHide = false; // Grid only: hide captions, tooltips and printed state names (nameless images)
+  try {
+    if (localStorage.getItem('platesquiz.v2.explore') === 'grid') exploreView = 'grid';
+    exploreHide = localStorage.getItem('platesquiz.v2.exploreHide') === '1';
+  } catch (e) { /* ignore */ }
 
   // States in alphabetical order, each with its plates: main plate first, then file order.
   function exploreGroups() {
@@ -906,16 +910,18 @@
     });
   }
 
-  function plateButton(p, state, cls, caption) {
+  function plateButton(p, state, cls, caption, hide) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
     var name = state + (p.label ? ' (' + p.label + ')' : '');
-    b.setAttribute('aria-label', 'Show ' + name + ' larger');
-    b.title = name;
+    // hidden mode: no tooltip, a neutral label, and the name-free image; the dialog reveals the answer
+    b.setAttribute('aria-label', hide ? 'Reveal this plate' : 'Show ' + name + ' larger');
+    if (!hide) b.title = name;
     var im = document.createElement('img');
-    im.src = p.img; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false;
+    im.src = hide && p.nameless ? p.nameless : p.img;
+    im.alt = ''; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false;
     b.appendChild(im);
-    if (caption) b.appendChild(caption);
+    if (caption && !hide) b.appendChild(caption);
     b.addEventListener('click', function () { openPlate(p, state); });
     return b;
   }
@@ -927,15 +933,21 @@
       x.setAttribute('aria-pressed', x.getAttribute('data-view') === exploreView ? 'true' : 'false');
     });
     var groups = exploreGroups();
+    el.namesWrap.hidden = exploreView !== 'grid';
+    el.hideNames.checked = exploreHide;
     if (exploreView === 'grid') {
+      var tiles = [];
       groups.forEach(function (g) {
-        g.plates.forEach(function (p) {
-          var cap = document.createElement('span');
-          cap.className = 'ex-cap'; cap.textContent = g.state;
-          var t = plateButton(p, g.state, 'ex-tile', cap);
-          t.setAttribute('data-state', g.state.toLowerCase());
-          el.exploreList.appendChild(t);
-        });
+        g.plates.forEach(function (p) { tiles.push({ p: p, state: g.state }); });
+      });
+      // alphabetical order would give the answers away when names are hidden
+      if (exploreHide) tiles = shuffle(tiles);
+      tiles.forEach(function (x) {
+        var cap = document.createElement('span');
+        cap.className = 'ex-cap'; cap.textContent = x.state;
+        var t = plateButton(x.p, x.state, 'ex-tile', cap, exploreHide);
+        t.setAttribute('data-state', x.state.toLowerCase());
+        el.exploreList.appendChild(t);
       });
     } else {
       groups.forEach(function (g) {
@@ -1017,6 +1029,11 @@
     renderExplore();
   });
   el.exploreFilter.addEventListener('input', applyExploreFilter);
+  el.hideNames.addEventListener('change', function () {
+    exploreHide = el.hideNames.checked;
+    try { localStorage.setItem('platesquiz.v2.exploreHide', exploreHide ? '1' : '0'); } catch (err) { /* ignore */ }
+    renderExplore();
+  });
 
   /* ---------- init ---------- */
   el.allCount.textContent = ALL_PLATES.length ? ALL_PLATES.length + ' plates' : 'plates';
