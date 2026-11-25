@@ -38,7 +38,6 @@
     var k = STATE_BY_LOWER[String(p.state).toLowerCase()];
     (VERSIONS[k] = VERSIONS[k] || []).push(p);
   });
-  var seenImgs = {}; // session-wide: plate versions already shown
 
   function $(id) { return document.getElementById(id); }
   var el = {
@@ -118,74 +117,24 @@
   /* ---------- images ---------- */
   function loadImage(url) {
     if (imageCache[url]) return imageCache[url];
-    imageCache[url] = new Promise(function (resolve) {
-      var img = new Image();
-      img.decoding = 'async';
-      img.onload = function () { resolve(img); };
-      img.onerror = function () { resolve(null); };
-      img.src = url;
+    // One automatic retry so a transient network error doesn't permanently drop a plate.
+    function attempt(left) {
+      return new Promise(function (resolve) {
+        var img = new Image();
+        img.decoding = 'async';
+        img.onload = function () { resolve(img); };
+        img.onerror = function () {
+          if (left > 0) setTimeout(function () { attempt(left - 1).then(resolve); }, 400);
+          else resolve(null);
+        };
+        img.src = url;
+      });
+    }
+    imageCache[url] = attempt(1).then(function (img) {
+      if (!img) delete imageCache[url]; // don't cache a failure: a later request may succeed
+      return img;
     });
     return imageCache[url];
-  }
-
-  // Heavily blurred, downscaled, noisy rendering. The sharp image is never put in the DOM.
-  function renderBlurred(img) {
-    var nw = img.naturalWidth || 480, nh = img.naturalHeight || 240;
-    var W = 480, H = Math.max(1, Math.round(W * nh / nw));
-    var radius = Math.round(W * 0.045);
-    var m = radius * 2;
-
-    // 1. strong downscale (destroys fine detail)
-    var smallW = Math.max(8, Math.round(W / 5)), smallH = Math.max(8, Math.round(smallW * nh / nw));
-    var small = document.createElement('canvas');
-    small.width = smallW; small.height = smallH;
-    var sc = small.getContext('2d');
-    sc.imageSmoothingQuality = 'high';
-    sc.drawImage(img, 0, 0, smallW, smallH);
-
-    // 2. upscale into padded canvas with edge extension, so the blur does not fade at the borders
-    var pad = document.createElement('canvas');
-    pad.width = W + 2 * m; pad.height = H + 2 * m;
-    var pc = pad.getContext('2d');
-    pc.imageSmoothingEnabled = true; pc.imageSmoothingQuality = 'high';
-    pc.drawImage(small, 0, 0, smallW, smallH, m, m, W, H);
-    pc.drawImage(small, 0, 0, 1, smallH, 0, m, m, H);
-    pc.drawImage(small, smallW - 1, 0, 1, smallH, W + m, m, m, H);
-    pc.drawImage(small, 0, 0, smallW, 1, m, 0, W, m);
-    pc.drawImage(small, 0, smallH - 1, smallW, 1, m, H + m, W, m);
-    pc.drawImage(small, 0, 0, 1, 1, 0, 0, m, m);
-    pc.drawImage(small, smallW - 1, 0, 1, 1, W + m, 0, m, m);
-    pc.drawImage(small, 0, smallH - 1, 1, 1, 0, H + m, m, m);
-    pc.drawImage(small, smallW - 1, smallH - 1, 1, 1, W + m, H + m, m, m);
-
-    // 3. gaussian blur (canvas filter if supported, else CSS filter on the element)
-    var out = document.createElement('canvas');
-    out.width = W; out.height = H;
-    var oc = out.getContext('2d');
-    var filtered = false;
-    if ('filter' in oc) {
-      oc.filter = 'blur(' + radius + 'px)';
-      oc.drawImage(pad, -m, -m);
-      oc.filter = 'none';
-      filtered = true;
-    } else {
-      oc.drawImage(pad, -m, -m);
-    }
-    if (!filtered) out.style.filter = 'blur(' + radius + 'px)';
-
-    // 4. light noise
-    try {
-      var d = oc.getImageData(0, 0, W, H), px = d.data;
-      for (var i = 0; i < px.length; i += 4) {
-        var n = (Math.random() - 0.5) * 24;
-        px[i] += n; px[i + 1] += n; px[i + 2] += n;
-      }
-      oc.putImageData(d, 0, 0);
-    } catch (e) { /* tainted canvas: skip noise */ }
-
-    out.setAttribute('role', 'img');
-    out.setAttribute('aria-label', 'Blurred license plate');
-    return out;
   }
 
   function sharpImg(plate, state) {
@@ -197,28 +146,9 @@
   }
 
   /* ---------- run setup ---------- */
-  function pickPlates(n) {
-    var by = {};
-    ALL_PLATES.forEach(function (p) {
-      if (failedImgs[p.img]) return;
-      var k = STATE_BY_LOWER[String(p.state).toLowerCase()];
-      (by[k] = by[k] || []).push(p);
-    });
-    Object.keys(by).forEach(function (k) {
-      var list = by[k];
-      if (list.every(function (p) { return seenImgs[p.img]; })) list.forEach(function (p) { delete seenImgs[p.img]; });
-      var seen = shuffle(list.filter(function (p) { return seenImgs[p.img]; }));
-      var fresh = shuffle(list.filter(function (p) { return !seenImgs[p.img]; }));
-      by[k] = seen.concat(fresh); // pop() takes unseen versions first
-    });
-    var picked = [];
-    while (picked.length < n) {
-      var keys = shuffle(Object.keys(by).filter(function (k) { return by[k].length; }));
-      if (!keys.length) break;
-      for (var i = 0; i < keys.length && picked.length < n; i++) picked.push(by[keys[i]].pop());
-    }
-    picked.forEach(function (p) { seenImgs[p.img] = true; });
-    var qs = picked.map(function (p) {
+  // All: every plate of every state, in random order with no state twice in a row where possible.
+  function pickAll() {
+    var qs = ALL_PLATES.filter(function (p) { return !failedImgs[p.img]; }).map(function (p) {
       return { type: 'state', plate: p, state: STATE_BY_LOWER[String(p.state).toLowerCase()] };
     });
     return applyFront(spreadStates(qs));
@@ -282,9 +212,9 @@
     }
     el.loadError.hidden = true;
     var primaryMode = settings.len !== 'all';
-    var n = primaryMode ? Math.min(parseInt(settings.len, 10), Object.keys(PRIMARY).length) : ALL_PLATES.length;
+    var n = primaryMode ? Math.min(parseInt(settings.len, 10), Object.keys(PRIMARY).length) : 0;
     S = {
-      diff: settings.diff, primaryMode: primaryMode, plates: primaryMode ? pickPrimary(n) : pickPlates(n), idx: 0, score: 0,
+      diff: settings.diff, primaryMode: primaryMode, plates: primaryMode ? pickPrimary(n) : pickAll(), idx: 0, score: 0,
       names: settings.names, answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
     };
     show(el.quiz);
@@ -370,16 +300,15 @@
     loadForQuestion(q, hard).then(function (res) {
       if (!S || token !== S.token) return; // run ended (Home) or a newer question started
       var img = res.img;
-      if (!img) { skipBroken(q); return; }
+      // A missing name-free image would show the printed name, and a missing blur would show the plate: replace the question.
+      if (!img || (wantsNameless(q) && !res.nl) || (hard && !res.real)) { skipBroken(q); return; }
       q.hasNl = !!res.nl;
       clear(el.holder);
-      if (hard && res.real) {
+      if (hard) {
         var bi = document.createElement('img');
         bi.className = 'blurred';
         bi.src = q.plate.blurImg; bi.alt = 'Blurred license plate'; bi.draggable = false;
         el.holder.appendChild(bi);
-      } else if (hard) {
-        el.holder.appendChild(renderBlurred(img));
       } else {
         showBase(q, res);
       }
@@ -896,8 +825,8 @@
 
   /* ---------- explore all plates ---------- */
   var exploreView = 'state';
-  // Grid only: 'names' (captions, full plates), 'hidden' (no captions, name-free plates) or 'blur' (blurred plates).
-  // 'hidden' and 'blur' are for practice: shuffled, no tooltips, click a plate to reveal it.
+  // Grid only: which image each tile shows: 'names' (full plate), 'hidden' (name-free plate) or 'blur' (blurred plate).
+  // Captions and tooltips are always shown; only the picture changes.
   var EXPLORE_MODES = { names: 1, hidden: 1, blur: 1 };
   var exploreMode = 'names';
   try {
@@ -916,19 +845,17 @@
   }
 
   // mode: undefined/'names' = normal; 'hidden' = name-free image; 'blur' = blurred image.
-  // In the practice modes there is no tooltip and a neutral label; the dialog reveals the answer.
   function plateButton(p, state, cls, caption, mode) {
-    var hide = mode === 'hidden' || mode === 'blur';
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls + (mode === 'blur' ? ' is-blur' : '');
     var name = state + (p.label ? ' (' + p.label + ')' : '');
-    b.setAttribute('aria-label', hide ? 'Reveal this plate' : 'Show ' + name + ' larger');
-    if (!hide) b.title = name;
+    b.setAttribute('aria-label', 'Show ' + name + ' larger');
+    b.title = name;
     var im = document.createElement('img');
     im.src = mode === 'blur' && p.blurImg ? p.blurImg : mode === 'hidden' && p.nameless ? p.nameless : p.img;
     im.alt = ''; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false;
     b.appendChild(im);
-    if (caption && !hide) b.appendChild(caption);
+    if (caption) b.appendChild(caption);
     b.addEventListener('click', function () { openPlate(p, state); });
     return b;
   }
@@ -944,14 +871,11 @@
     Array.prototype.forEach.call(el.namesGroup.querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', x.getAttribute('data-names') === exploreMode ? 'true' : 'false');
     });
-    var practice = exploreMode !== 'names';
     if (exploreView === 'grid') {
       var tiles = [];
       groups.forEach(function (g) {
         g.plates.forEach(function (p) { tiles.push({ p: p, state: g.state }); });
       });
-      // alphabetical order would give the answers away when names are hidden
-      if (practice) tiles = shuffle(tiles);
       tiles.forEach(function (x) {
         var cap = document.createElement('span');
         cap.className = 'ex-cap'; cap.textContent = x.state;
