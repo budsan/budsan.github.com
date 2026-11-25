@@ -346,7 +346,9 @@ body[data-screen="explore"] .app{max-width:1280px}
 /* Explore tools row: filter + hide-names toggle */
 .explore-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin-bottom:16px}
 .explore-tools .filter{flex:1 1 240px;margin-bottom:0}
-.toggle.toggle-sm{margin:0;padding:6px 12px;gap:10px;flex:0 0 auto}
-.toggle-sm .toggle-text{font-size:.9rem;line-height:1.2}
-.toggle-sm .toggle-text small{font-size:.75rem}
-@media (max-width:560px){.toggle.toggle-sm{flex-basis:100%}}
+.seg-names{grid-template-columns:repeat(3,auto);gap:6px;flex:0 0 auto}
+.seg-names .seg-btn{min-height:0;padding:8px 14px;border-radius:12px}
+.seg-names .seg-btn strong{font-size:.9rem;white-space:nowrap}
+@media (max-width:560px){.seg-names{flex-basis:100%;grid-template-columns:repeat(3,1fr)}}
+/* blurred tiles: same punch-up as the quiz's blurred plate */
+.ex-tile.is-blur img{filter:contrast(1.25) saturate(1.2)}

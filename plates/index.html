@@ -165,12 +165,11 @@
     <div class="explore-tools">
       <label class="sr-only" for="explore-filter">Filter by state</label>
       <input id="explore-filter" class="filter" type="search" placeholder="Filter by state..." autocomplete="off" spellcheck="false">
-      <label class="toggle toggle-sm" id="names-wrap" hidden>
-        <input type="checkbox" id="hide-names" role="switch">
-        <span class="track" aria-hidden="true"></span>
-        <span class="toggle-text"><strong>Hide state names</strong>
-          <small>Click a plate to reveal it</small></span>
-      </label>
+      <div class="seg seg-names" id="names-group" role="group" aria-label="Plate display" hidden>
+        <button type="button" class="seg-btn" data-names="names" aria-pressed="true"><strong>With names</strong></button>
+        <button type="button" class="seg-btn" data-names="hidden" aria-pressed="false"><strong>No names</strong></button>
+        <button type="button" class="seg-btn" data-names="blur" aria-pressed="false"><strong>Blurred</strong></button>
+      </div>
     </div>
     <div id="explore-list" class="explore-list"></div>
     <p id="explore-empty" class="best" hidden>No state matches that filter.</p>

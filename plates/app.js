@@ -62,7 +62,7 @@
     rankSub: $('rank-sub'), streakFinal: $('streak-final'),
     explore: $('screen-explore'), exploreBtn: $('explore-btn'), viewGroup: $('view-group'),
     exploreList: $('explore-list'), exploreCount: $('explore-count'), exploreFilter: $('explore-filter'),
-    exploreEmpty: $('explore-empty'), namesWrap: $('names-wrap'), hideNames: $('hide-names'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
+    exploreEmpty: $('explore-empty'), namesGroup: $('names-group'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
   };
 
   var settings = { diff: 'easy', len: '25', front: false, names: false };
@@ -896,10 +896,15 @@
 
   /* ---------- explore all plates ---------- */
   var exploreView = 'state';
-  var exploreHide = false; // Grid only: hide captions, tooltips and printed state names (nameless images)
+  // Grid only: 'names' (captions, full plates), 'hidden' (no captions, name-free plates) or 'blur' (blurred plates).
+  // 'hidden' and 'blur' are for practice: shuffled, no tooltips, click a plate to reveal it.
+  var EXPLORE_MODES = { names: 1, hidden: 1, blur: 1 };
+  var exploreMode = 'names';
   try {
     if (localStorage.getItem('platesquiz.v2.explore') === 'grid') exploreView = 'grid';
-    exploreHide = localStorage.getItem('platesquiz.v2.exploreHide') === '1';
+    var savedMode = localStorage.getItem('platesquiz.v2.exploreMode');
+    if (EXPLORE_MODES[savedMode]) exploreMode = savedMode;
+    else if (localStorage.getItem('platesquiz.v2.exploreHide') === '1') exploreMode = 'hidden'; // old toggle setting
   } catch (e) { /* ignore */ }
 
   // States in alphabetical order, each with its plates: main plate first, then file order.
@@ -910,15 +915,17 @@
     });
   }
 
-  function plateButton(p, state, cls, caption, hide) {
+  // mode: undefined/'names' = normal; 'hidden' = name-free image; 'blur' = blurred image.
+  // In the practice modes there is no tooltip and a neutral label; the dialog reveals the answer.
+  function plateButton(p, state, cls, caption, mode) {
+    var hide = mode === 'hidden' || mode === 'blur';
     var b = document.createElement('button');
-    b.type = 'button'; b.className = cls;
+    b.type = 'button'; b.className = cls + (mode === 'blur' ? ' is-blur' : '');
     var name = state + (p.label ? ' (' + p.label + ')' : '');
-    // hidden mode: no tooltip, a neutral label, and the name-free image; the dialog reveals the answer
     b.setAttribute('aria-label', hide ? 'Reveal this plate' : 'Show ' + name + ' larger');
     if (!hide) b.title = name;
     var im = document.createElement('img');
-    im.src = hide && p.nameless ? p.nameless : p.img;
+    im.src = mode === 'blur' && p.blurImg ? p.blurImg : mode === 'hidden' && p.nameless ? p.nameless : p.img;
     im.alt = ''; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false;
     b.appendChild(im);
     if (caption && !hide) b.appendChild(caption);
@@ -933,19 +940,22 @@
       x.setAttribute('aria-pressed', x.getAttribute('data-view') === exploreView ? 'true' : 'false');
     });
     var groups = exploreGroups();
-    el.namesWrap.hidden = exploreView !== 'grid';
-    el.hideNames.checked = exploreHide;
+    el.namesGroup.hidden = exploreView !== 'grid';
+    Array.prototype.forEach.call(el.namesGroup.querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', x.getAttribute('data-names') === exploreMode ? 'true' : 'false');
+    });
+    var practice = exploreMode !== 'names';
     if (exploreView === 'grid') {
       var tiles = [];
       groups.forEach(function (g) {
         g.plates.forEach(function (p) { tiles.push({ p: p, state: g.state }); });
       });
       // alphabetical order would give the answers away when names are hidden
-      if (exploreHide) tiles = shuffle(tiles);
+      if (practice) tiles = shuffle(tiles);
       tiles.forEach(function (x) {
         var cap = document.createElement('span');
         cap.className = 'ex-cap'; cap.textContent = x.state;
-        var t = plateButton(x.p, x.state, 'ex-tile', cap, exploreHide);
+        var t = plateButton(x.p, x.state, 'ex-tile', cap, exploreMode);
         t.setAttribute('data-state', x.state.toLowerCase());
         el.exploreList.appendChild(t);
       });
@@ -1029,9 +1039,14 @@
     renderExplore();
   });
   el.exploreFilter.addEventListener('input', applyExploreFilter);
-  el.hideNames.addEventListener('change', function () {
-    exploreHide = el.hideNames.checked;
-    try { localStorage.setItem('platesquiz.v2.exploreHide', exploreHide ? '1' : '0'); } catch (err) { /* ignore */ }
+  el.namesGroup.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-names]');
+    if (!b || b.getAttribute('data-names') === exploreMode) return;
+    exploreMode = b.getAttribute('data-names');
+    try {
+      localStorage.setItem('platesquiz.v2.exploreMode', exploreMode);
+      localStorage.removeItem('platesquiz.v2.exploreHide');
+    } catch (err) { /* ignore */ }
     renderExplore();
   });
 
