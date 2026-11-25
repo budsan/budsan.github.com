@@ -28,6 +28,10 @@
     var f = getFacts(state);
     return !!f && typeof f.frontPlate === 'boolean';
   }
+  // Eligible for a Yes/No front-plate question: states whose rule has conditions are left out.
+  function frontQuizzable(state) {
+    return hasFront(state) && getFacts(state).frontAmbiguous !== true;
+  }
   var failedImgs = {};
   var VERSIONS = {};
   ALL_PLATES.forEach(function (p) {
@@ -60,6 +64,7 @@
 
   var settings = { diff: 'easy', len: '25', front: false, names: false };
   var S = null; // current run
+  var qToken = 0; // page-wide question counter: never repeats across runs, so stale loads can't match
   var imageCache = {};
 
   /* ---------- helpers ---------- */
@@ -78,7 +83,11 @@
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
-  function bestKey() { return 'platesquiz.v2.best.' + settings.diff + '.' + settings.len + (settings.front ? '.front' : '') + (settings.names ? '.names' : ''); }
+  // The names setting has no effect in Hard (the plate is blurred either way), so it is not part of Hard's key.
+  function bestKey() {
+    return 'platesquiz.v2.best.' + settings.diff + '.' + settings.len + (settings.front ? '.front' : '') +
+      (settings.names && settings.diff !== 'hard' ? '.names' : '');
+  }
   function getBest() {
     try {
       var v = JSON.parse(localStorage.getItem(bestKey()));
@@ -205,22 +214,43 @@
       for (var i = 0; i < keys.length && picked.length < n; i++) picked.push(by[keys[i]].pop());
     }
     picked.forEach(function (p) { seenImgs[p.img] = true; });
-    var qs = shuffle(picked).map(function (p) {
+    var qs = picked.map(function (p) {
       return { type: 'state', plate: p, state: STATE_BY_LOWER[String(p.state).toLowerCase()] };
     });
-    for (var a = 1; a < qs.length; a++) {
-      if (qs[a].state !== qs[a - 1].state) continue;
-      for (var b = a + 1; b < qs.length; b++) {
-        if (qs[b].state !== qs[a - 1].state) { var tmp = qs[a]; qs[a] = qs[b]; qs[b] = tmp; break; }
+    return applyFront(spreadStates(qs));
+  }
+
+  // Random order with no state twice in a row (whenever that is possible).
+  // Each step picks a state other than the last one, weighted by how many plates it has left;
+  // a state that would otherwise run out of gaps (2*count >= remaining) is placed immediately.
+  function spreadStates(qs) {
+    var by = {};
+    shuffle(qs).forEach(function (q) { (by[q.state] = by[q.state] || []).push(q); });
+    var out = [], last = null;
+    while (out.length < qs.length) {
+      var left = Object.keys(by).filter(function (k) { return by[k].length; });
+      var keys = left.filter(function (k) { return k !== last; });
+      if (!keys.length) keys = left; // only the last state remains: adjacency unavoidable
+      var remaining = qs.length - out.length, pick = null, total = 0;
+      keys.forEach(function (k) {
+        total += by[k].length;
+        if (2 * by[k].length >= remaining && (!pick || by[k].length > by[pick].length)) pick = k;
+      });
+      if (!pick) {
+        var r = Math.random() * total;
+        for (var i = 0; i < keys.length; i++) { r -= by[keys[i]].length; if (r < 0) { pick = keys[i]; break; } }
+        if (!pick) pick = keys[keys.length - 1];
       }
+      out.push(by[pick].pop());
+      last = pick;
     }
-    return applyFront(qs);
+    return out;
   }
 
   function applyFront(qs) {
     if (settings.front) {
       var elig = [];
-      qs.forEach(function (q, i) { if (hasFront(q.state)) elig.push(i); });
+      qs.forEach(function (q, i) { if (frontQuizzable(q.state)) elig.push(i); });
       shuffle(elig).slice(0, Math.round(qs.length / 4)).forEach(function (i) { qs[i].type = 'front'; });
     }
     return qs;
@@ -270,7 +300,9 @@
     var pool = fresh.length ? fresh : cands;
     if (pool.length) {
       var pl = pool[Math.floor(Math.random() * pool.length)];
-      S.plates[S.idx] = { type: 'state', plate: pl, state: STATE_BY_LOWER[String(pl.state).toLowerCase()] };
+      var ns = STATE_BY_LOWER[String(pl.state).toLowerCase()];
+      // keep a front-plate question a front-plate question when the replacement state allows it
+      S.plates[S.idx] = { type: q.type === 'front' && frontQuizzable(ns) ? 'front' : 'state', plate: pl, state: ns };
       showQuestion();
       return;
     }
@@ -297,7 +329,8 @@
     q.correct = isFront ? (getFacts(state).frontPlate ? 'Yes' : 'No') : state;
     S.current = q;
     S.answered = false; S.ready = false;
-    var token = ++S.token;
+    var token = S.token = ++qToken;
+    syncBlurBtn(); // disabled until the plate is ready, and hidden if this question can't be blurred
 
     el.progress.textContent = (S.idx + 1) + '/' + S.plates.length;
     el.score.textContent = 'Score ' + S.score;
@@ -331,7 +364,7 @@
 
     cancelReveal();
     loadForQuestion(q, hard).then(function (res) {
-      if (token !== S.token) return;
+      if (!S || token !== S.token) return; // run ended (Home) or a newer question started
       var img = res.img;
       if (!img) { skipBroken(q); return; }
       q.hasNl = !!res.nl;
@@ -360,8 +393,9 @@
   var blurOn = false;
   try { blurOn = localStorage.getItem('platesquiz.v2.blur') === '1'; } catch (e) { /* ignore */ }
   function canBlur(q) { return !!q && S && S.diff !== 'hard' && q.type !== 'front' && !!q.plate.blurImg; }
-  function baseNode(q) {
-    if (blurOn && canBlur(q)) {
+  // blurOk === false means the blurred image failed or timed out: show the sharp plate instead.
+  function baseNode(q, blurOk) {
+    if (blurOn && canBlur(q) && blurOk !== false) {
       var bi = document.createElement('img');
       bi.className = 'blurred'; bi.src = q.plate.blurImg; bi.alt = 'Blurred license plate'; bi.draggable = false;
       q.shownBlur = true;
@@ -372,9 +406,9 @@
     im.alt = 'A US license plate';
     return im;
   }
-  function showBase(q) {
+  function showBase(q, res) {
     clear(el.holder);
-    el.holder.appendChild(baseNode(q));
+    el.holder.appendChild(baseNode(q, res.real));
   }
   function syncBlurBtn() {
     var q = S && S.current;
@@ -382,7 +416,7 @@
     el.blurBtn.hidden = !show;
     el.blurBtn.setAttribute('aria-pressed', blurOn ? 'true' : 'false');
     el.blurBtn.textContent = blurOn ? 'Unblur plate' : 'Blur plate';
-    el.blurBtn.disabled = !!(S && S.answered);
+    el.blurBtn.disabled = !S || S.answered || !S.ready;
   }
 
   function wantsNameless(q) {
@@ -469,7 +503,9 @@
       b.addEventListener('click', function () { answer(name); });
       el.easy.appendChild(b);
     });
-    if (el.easy.firstChild && el.easy.firstChild.focus) el.easy.firstChild.focus({ preventScroll: true });
+    // Focus the group, not choice 1: a held or repeated Enter from "Next" must not answer the new question.
+    el.easy.tabIndex = -1;
+    el.easy.focus({ preventScroll: true });
   }
 
   /* ---------- answering ---------- */
@@ -557,6 +593,12 @@
   function buildStrip(q) {
     clear(el.stripList);
     var vs = VERSIONS[q.state] || [];
+    if (!S.primaryMode) {
+      // In All mode, only compare designs already shown this run, so the strip can't reveal later answers.
+      var shown = {};
+      S.plates.slice(0, S.idx + 1).forEach(function (x) { shown[x.plate.img] = true; });
+      vs = vs.filter(function (v) { return shown[v.img]; });
+    }
     el.strip.hidden = vs.length < 2;
     if (vs.length < 2) return;
     vs.forEach(function (v, i) {
@@ -780,9 +822,14 @@
     if (!S || S.answered || !S.ready || !canBlur(q)) return;
     blurOn = !blurOn;
     try { localStorage.setItem('platesquiz.v2.blur', blurOn ? '1' : '0'); } catch (e) { /* ignore */ }
-    var node = baseNode(q);
-    fadeTo(node, 250);
     syncBlurBtn();
+    // Wait for the blurred image (cached promise) so a missing file falls back to the sharp plate.
+    var tok = S.token;
+    var p = blurOn ? loadImage(q.plate.blurImg) : Promise.resolve(true);
+    p.then(function (ok) {
+      if (!S || S.token !== tok || S.answered) return;
+      fadeTo(baseNode(q, !!ok), 250);
+    });
   });
   el.frontToggle.addEventListener('change', function () { settings.front = el.frontToggle.checked; updateBestLine(); });
   el.namesToggle.addEventListener('change', function () { settings.names = el.namesToggle.checked; updateBestLine(); });
@@ -790,7 +837,7 @@
   el.next.addEventListener('click', next);
   el.again.addEventListener('click', startRun);
   el.home.addEventListener('click', function () {
-    if (S) S.token++;
+    qToken++; // invalidate any plate still loading
     cancelReveal();
     S = null;
     closeSuggest();
@@ -829,6 +876,8 @@
 
   document.addEventListener('keydown', function (e) {
     if (el.quiz.hidden || !S || e.defaultPrevented) return;
+    // Ignore auto-repeat of Enter so holding it can't skip through questions (also cancels the button's click).
+    if (e.key === 'Enter' && e.repeat) { e.preventDefault(); return; }
     var t = e.target;
     var onBody = t === document.body || t === document.documentElement;
     if (e.key === 'Enter' && S.answered && onBody) { e.preventDefault(); next(); return; }

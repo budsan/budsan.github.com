@@ -290,3 +290,4 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 .home-btn:hover{background:rgba(128,128,128,.14)}
 .home-btn:focus-visible{outline:2px solid var(--accent,#2a6df4);outline-offset:2px}
 @media (max-width:560px){.home-btn{position:static;display:block;margin:0 auto 10px}.home-btn[hidden]{display:none}}
+.choices:focus{outline:none}

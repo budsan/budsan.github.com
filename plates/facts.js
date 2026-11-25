@@ -113,6 +113,7 @@ const FACTS = {
     designs: "The 2025 plate is black on white with a rainbow in the background and 'HAWAIʻI' at the top; it replaced the 'Aloha State' plate that ran from 1991."
   },
   "Idaho": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "Idaho requires a front plate only if the vehicle has a front mounting bracket (since July 1, 2025); ITD still issues two plates.",
     nickname: "Famous Potatoes",
@@ -262,6 +263,7 @@ const FACTS = {
     designs: "The current plate (November 2024) has 'Show-Me State' at the top; the previous 2018 Bicentennial plate was dark blue on white with the state seal."
   },
   "Montana": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "Montana requires front and rear plates; a Highway Patrol waiver is available if no front bracket exists for the vehicle.",
     nickname: "Treasure State",
@@ -283,6 +285,7 @@ const FACTS = {
     designs: "The January 2023 plate is dark blue on white with the Capitol's 'Genius of Creative Energy' mosaic in the background."
   },
   "Nevada": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "Nevada requires two plates unless the vehicle was not designed for a front plate and no bracket was provided (NV DMV).",
     nickname: "Home Means Nevada",
@@ -403,6 +406,7 @@ const FACTS = {
     designs: "The May 2025 plate has a Liberty Bell on cream with red 'Pennsylvania' and 'Let Freedom Ring'."
   },
   "Rhode Island": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "Rhode Island requires two plates, but vehicles without a factory front bracket may show only the rear plate (new 2026 law).",
     nickname: "Ocean State",
@@ -425,6 +429,7 @@ const FACTS = {
     designs: "The January 2026 plate carries the slogan 'Where the Revolutionary War Was Won'."
   },
   "South Dakota": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "South Dakota requires front and rear plates, except rear-only plates are available for vehicles driven under 7,500 miles a year (SD DOR).",
     nickname: "Great Faces. Great Places.",
@@ -524,6 +529,7 @@ const FACTS = {
     designs: "The April 2017 plate keeps the 'America's Dairyland' slogan and uses an ABC-1234 serial."
   },
   "Wyoming": {
+    frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,
     frontNote: "Wyoming requires front and rear plates, except vehicles made without a front plate bracket and custom or antique vehicles, which can display the rear only.",
     nickname: "That's WY",
