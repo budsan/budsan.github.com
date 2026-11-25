@@ -68,6 +68,7 @@
     </label>
 
     <button type="button" id="start-btn" class="btn primary big">Start quiz</button>
+    <button type="button" id="explore-btn" class="btn big explore-btn">Explore all plates</button>
     <p id="best-line" class="best" aria-live="polite"></p>
     <p id="load-error" class="error" role="alert" hidden></p>
   </section>
@@ -151,7 +152,31 @@
     </div>
     <p id="share-msg" class="best" role="status" aria-live="polite"></p>
   </section>
+
+  <!-- EXPLORE -->
+  <section id="screen-explore" class="card explore" aria-labelledby="explore-h" hidden>
+    <div class="explore-head">
+      <h2 id="explore-h">All plates <span id="explore-count" class="count"></span></h2>
+      <div class="seg seg-view" id="view-group" role="group" aria-label="View mode">
+        <button type="button" class="seg-btn" data-view="state" aria-pressed="true"><strong>By state</strong><span class="sub">every design, grouped</span></button>
+        <button type="button" class="seg-btn" data-view="grid" aria-pressed="false"><strong>Grid</strong><span class="sub">all plates together</span></button>
+      </div>
+    </div>
+    <label class="sr-only" for="explore-filter">Filter by state</label>
+    <input id="explore-filter" class="filter" type="search" placeholder="Filter by state..." autocomplete="off" spellcheck="false">
+    <div id="explore-list" class="explore-list"></div>
+    <p id="explore-empty" class="best" hidden>No state matches that filter.</p>
+  </section>
 </main>
+
+<dialog id="plate-dialog" class="plate-dialog" aria-labelledby="dlg-title">
+  <img id="dlg-img" alt="">
+  <div class="dlg-body">
+    <p id="dlg-title" class="dlg-title"></p>
+    <p id="dlg-sub" class="dlg-sub"></p>
+  </div>
+  <form method="dialog"><button class="btn dlg-close" aria-label="Close">Close</button></form>
+</dialog>
 
 <footer class="foot">
   <p>Plate images mostly from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>. &middot; <a href="../">&larr; Back to home</a></p>

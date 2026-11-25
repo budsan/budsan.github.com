@@ -59,7 +59,10 @@
     blurBtn: $('blur-btn'), home: $('home-btn'),
     strip: $('info-strip'), stripList: $('strip-list'), share: $('share-btn'), shareMsg: $('share-msg'),
     streak: $('streak'), streakN: $('streak-n'), frame: $('plate-frame'), ring: $('ring'),
-    rankSub: $('rank-sub'), streakFinal: $('streak-final')
+    rankSub: $('rank-sub'), streakFinal: $('streak-final'),
+    explore: $('screen-explore'), exploreBtn: $('explore-btn'), viewGroup: $('view-group'),
+    exploreList: $('explore-list'), exploreCount: $('explore-count'), exploreFilter: $('explore-filter'),
+    exploreEmpty: $('explore-empty'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
   };
 
   var settings = { diff: 'easy', len: '25', front: false, names: false };
@@ -77,9 +80,10 @@
     return a;
   }
   function show(screen) {
-    [el.start, el.quiz, el.end].forEach(function (s) { s.hidden = s !== screen; });
+    [el.start, el.quiz, el.end, el.explore].forEach(function (s) { s.hidden = s !== screen; });
     if (el.home) el.home.hidden = screen === el.start;
-    document.body.setAttribute('data-screen', screen === el.start ? 'start' : screen === el.quiz ? 'quiz' : 'end');
+    document.body.setAttribute('data-screen',
+      screen === el.start ? 'start' : screen === el.quiz ? 'quiz' : screen === el.explore ? 'explore' : 'end');
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
@@ -889,6 +893,130 @@
       if (b) answer(b.dataset.state);
     }
   });
+
+  /* ---------- explore all plates ---------- */
+  var exploreView = 'state';
+  try { if (localStorage.getItem('platesquiz.v2.explore') === 'grid') exploreView = 'grid'; } catch (e) { /* ignore */ }
+
+  // States in alphabetical order, each with its plates: main plate first, then file order.
+  function exploreGroups() {
+    return STATES.filter(function (s) { return VERSIONS[s] && VERSIONS[s].length; }).map(function (s) {
+      var vs = VERSIONS[s].slice().sort(function (a, b) { return (b === PRIMARY[s]) - (a === PRIMARY[s]); });
+      return { state: s, plates: vs };
+    });
+  }
+
+  function plateButton(p, state, cls, caption) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = cls;
+    var name = state + (p.label ? ' (' + p.label + ')' : '');
+    b.setAttribute('aria-label', 'Show ' + name + ' larger');
+    b.title = name;
+    var im = document.createElement('img');
+    im.src = p.img; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false;
+    b.appendChild(im);
+    if (caption) b.appendChild(caption);
+    b.addEventListener('click', function () { openPlate(p, state); });
+    return b;
+  }
+
+  function renderExplore() {
+    clear(el.exploreList);
+    el.exploreList.className = 'explore-list view-' + exploreView;
+    Array.prototype.forEach.call(el.viewGroup.querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', x.getAttribute('data-view') === exploreView ? 'true' : 'false');
+    });
+    var groups = exploreGroups();
+    if (exploreView === 'grid') {
+      groups.forEach(function (g) {
+        g.plates.forEach(function (p) {
+          var cap = document.createElement('span');
+          cap.className = 'ex-cap'; cap.textContent = g.state;
+          var t = plateButton(p, g.state, 'ex-tile', cap);
+          t.setAttribute('data-state', g.state.toLowerCase());
+          el.exploreList.appendChild(t);
+        });
+      });
+    } else {
+      groups.forEach(function (g) {
+        var f = getFacts(g.state) || {};
+        var sec = document.createElement('section');
+        sec.className = 'ex-state';
+        sec.setAttribute('data-state', g.state.toLowerCase());
+        var head = document.createElement('div');
+        head.className = 'ex-head';
+        var h = document.createElement('h3'); h.textContent = g.state; head.appendChild(h);
+        if (typeof f.nickname === 'string' && f.nickname) {
+          var nk = document.createElement('span'); nk.className = 'ex-nick'; nk.textContent = f.nickname; head.appendChild(nk);
+        }
+        if (typeof f.frontPlate === 'boolean') {
+          var bd = document.createElement('span');
+          bd.className = 'badge ' + (f.frontPlate ? 'yes' : 'no');
+          bd.textContent = f.frontPlate ? (f.frontAmbiguous ? 'Front plate (with exceptions)' : 'Front plate required') : 'Rear plate only';
+          head.appendChild(bd);
+        }
+        sec.appendChild(head);
+        var row = document.createElement('div');
+        row.className = 'ex-variants';
+        g.plates.forEach(function (p, i) {
+          var cap = document.createElement('span');
+          cap.className = 'ex-cap';
+          cap.textContent = p.label || (g.plates.length > 1 ? 'Design ' + (i + 1) : 'Standard design');
+          if (p === PRIMARY[g.state] && g.plates.length > 1) {
+            var tag = document.createElement('em'); tag.className = 'ex-main'; tag.textContent = 'Main';
+            cap.appendChild(document.createTextNode(' ')); cap.appendChild(tag);
+          }
+          row.appendChild(plateButton(p, g.state, 'ex-plate', cap));
+        });
+        sec.appendChild(row);
+        el.exploreList.appendChild(sec);
+      });
+    }
+    applyExploreFilter();
+  }
+
+  function applyExploreFilter() {
+    var q = el.exploreFilter.value.trim().toLowerCase();
+    var shown = 0, states = {};
+    Array.prototype.forEach.call(el.exploreList.children, function (n) {
+      var st = n.getAttribute('data-state') || '';
+      var ok = !q || st.indexOf(q) >= 0;
+      n.hidden = !ok;
+      if (ok) {
+        shown += n.classList.contains('ex-state') ? n.querySelectorAll('.ex-plate').length : 1;
+        states[st] = true;
+      }
+    });
+    var ns = Object.keys(states).length;
+    el.exploreCount.textContent = shown + ' plate' + (shown === 1 ? '' : 's') + ' · ' + ns + ' state' + (ns === 1 ? '' : 's');
+    el.exploreEmpty.hidden = shown > 0;
+  }
+
+  function openPlate(p, state) {
+    el.dlgImg.src = p.img;
+    el.dlgImg.alt = 'License plate: ' + state + (p.label ? ' (' + p.label + ')' : '');
+    el.dlgTitle.textContent = state;
+    el.dlgSub.textContent = p.label || '';
+    el.dlgSub.hidden = !p.label;
+    if (typeof el.dlg.showModal === 'function') el.dlg.showModal(); else el.dlg.setAttribute('open', '');
+  }
+  // click on the dark backdrop (outside the dialog box) closes it
+  el.dlg.addEventListener('click', function (e) { if (e.target === el.dlg) el.dlg.close(); });
+
+  el.exploreBtn.addEventListener('click', function () {
+    S = null;
+    show(el.explore);
+    if (!el.exploreList.firstChild) renderExplore();
+    window.scrollTo(0, 0);
+  });
+  el.viewGroup.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-view]');
+    if (!b || b.getAttribute('data-view') === exploreView) return;
+    exploreView = b.getAttribute('data-view');
+    try { localStorage.setItem('platesquiz.v2.explore', exploreView); } catch (err) { /* ignore */ }
+    renderExplore();
+  });
+  el.exploreFilter.addEventListener('input', applyExploreFilter);
 
   /* ---------- init ---------- */
   el.allCount.textContent = ALL_PLATES.length ? ALL_PLATES.length + ' plates' : 'plates';
