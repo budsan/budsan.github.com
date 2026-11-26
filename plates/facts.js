@@ -407,7 +407,7 @@ const FACTS = {
   },
   "Puerto Rico": {
     nickname: "Island of Enchantment",
-    designs: "The USA 250 plate shows the flag fading into a harbour fortress scene, with the island's outline in the middle and '1776 USA 250 2026' along the bottom."
+    designs: "The standard plate shows a stone sentry box (garita) by the sea with 'Isla del Encanto' at the bottom. A 'USA 250' design with the flag and the island's outline is also shown."
   },
   "Rhode Island": {
     frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
