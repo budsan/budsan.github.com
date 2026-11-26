@@ -405,6 +405,10 @@ const FACTS = {
     ],
     designs: "The May 2025 plate has a Liberty Bell on cream with red 'Pennsylvania' and 'Let Freedom Ring'."
   },
+  "Puerto Rico": {
+    nickname: "Island of Enchantment",
+    designs: "The USA 250 plate shows the flag fading into a harbour fortress scene, with the island's outline in the middle and '1776 USA 250 2026' along the bottom."
+  },
   "Rhode Island": {
     frontAmbiguous: true, // conditional rule: left out of Yes/No front-plate questions
     frontPlate: true,

@@ -10,8 +10,12 @@
     'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
     'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
   ];
+  // Territories: browsable in Explore always, but only part of the quiz when the "Include Puerto Rico" switch is on.
+  var EXTRA = ['Puerto Rico'];
+  var NAMES_ALL = STATES.concat(EXTRA).sort();
   var STATE_BY_LOWER = {};
-  STATES.forEach(function (s) { STATE_BY_LOWER[s.toLowerCase()] = s; });
+  NAMES_ALL.forEach(function (s) { STATE_BY_LOWER[s.toLowerCase()] = s; });
+  function inPool(name, withExtra) { return EXTRA.indexOf(name) < 0 || !!withExtra; }
 
   var DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
@@ -55,6 +59,7 @@
     infoNick: $('info-nick'), infoFactWrap: $('info-fact-wrap'), infoFact: $('info-fact'), infoMore: $('info-more'),
     infoDesigns: $('info-designs'), infoFront: $('info-front'),
     namesToggle: $('names-toggle'), namesNote: $('names-toggle-note'),
+    prToggle: $('pr-toggle'), prNote: $('pr-toggle-note'),
     blurBtn: $('blur-btn'), home: $('home-btn'),
     strip: $('info-strip'), stripList: $('strip-list'), share: $('share-btn'), shareMsg: $('share-msg'),
     streak: $('streak'), streakN: $('streak-n'), frame: $('plate-frame'), ring: $('ring'),
@@ -64,7 +69,9 @@
     exploreEmpty: $('explore-empty'), namesGroup: $('names-group'), dlg: $('plate-dialog'), dlgImg: $('dlg-img'), dlgTitle: $('dlg-title'), dlgSub: $('dlg-sub')
   };
 
-  var settings = { diff: 'easy', len: '25', front: false, names: false };
+  var settings = { diff: 'easy', len: '25', front: false, names: false, pr: false };
+  // Names the current run can ask about (and that autocomplete / answer choices offer).
+  function activeNames() { return S && S.pr ? NAMES_ALL : STATES; }
   var S = null; // current run
   var qToken = 0; // page-wide question counter: never repeats across runs, so stale loads can't match
   var imageCache = {};
@@ -89,7 +96,7 @@
   // The names setting has no effect in Hard (the plate is blurred either way), so it is not part of Hard's key.
   function bestKey() {
     return 'platesquiz.v2.best.' + settings.diff + '.' + settings.len + (settings.front ? '.front' : '') +
-      (settings.names && settings.diff !== 'hard' ? '.names' : '');
+      (settings.names && settings.diff !== 'hard' ? '.names' : '') + (settings.pr ? '.pr' : '');
   }
   function getBest() {
     try {
@@ -148,7 +155,9 @@
   /* ---------- run setup ---------- */
   // All: every plate of every state, in random order with no state twice in a row where possible.
   function pickAll() {
-    var qs = ALL_PLATES.filter(function (p) { return !failedImgs[p.img]; }).map(function (p) {
+    var qs = ALL_PLATES.filter(function (p) {
+      return !failedImgs[p.img] && inPool(STATE_BY_LOWER[String(p.state).toLowerCase()], settings.pr);
+    }).map(function (p) {
       return { type: 'state', plate: p, state: STATE_BY_LOWER[String(p.state).toLowerCase()] };
     });
     return applyFront(spreadStates(qs));
@@ -196,9 +205,13 @@
     PRIMARY[k] = VERSIONS[k].filter(function (p) { return p.primary === true; })[0] || VERSIONS[k][0];
   });
 
+  function primaryKeys(withExtra) {
+    return Object.keys(PRIMARY).filter(function (k) { return inPool(k, withExtra); });
+  }
+
   // 25 / 50: n distinct states at random, each with its primary plate only.
   function pickPrimary(n) {
-    var states = shuffle(Object.keys(PRIMARY).filter(function (k) { return !failedImgs[PRIMARY[k].img]; }));
+    var states = shuffle(primaryKeys(settings.pr).filter(function (k) { return !failedImgs[PRIMARY[k].img]; }));
     return applyFront(states.slice(0, n).map(function (k) {
       return { type: 'state', plate: PRIMARY[k], state: k };
     }));
@@ -212,10 +225,10 @@
     }
     el.loadError.hidden = true;
     var primaryMode = settings.len !== 'all';
-    var n = primaryMode ? Math.min(parseInt(settings.len, 10), Object.keys(PRIMARY).length) : 0;
+    var n = primaryMode ? Math.min(parseInt(settings.len, 10), primaryKeys(settings.pr).length) : 0;
     S = {
       diff: settings.diff, primaryMode: primaryMode, plates: primaryMode ? pickPrimary(n) : pickAll(), idx: 0, score: 0,
-      names: settings.names, answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
+      names: settings.names, pr: settings.pr, answered: false, ready: false, token: 0, results: [], current: null, streak: 0, bestStreak: 0
     };
     show(el.quiz);
     el.diffLabel.textContent = DIFF_LABEL[S.diff];
@@ -227,9 +240,11 @@
     var used = {}, usedStates = {};
     S.plates.forEach(function (x) { used[x.plate.img] = true; usedStates[x.state] = true; });
     var cands = S.primaryMode
-      ? Object.keys(PRIMARY).filter(function (k) { return !usedStates[k] && !failedImgs[PRIMARY[k].img]; })
+      ? primaryKeys(S.pr).filter(function (k) { return !usedStates[k] && !failedImgs[PRIMARY[k].img]; })
           .map(function (k) { return PRIMARY[k]; })
-      : ALL_PLATES.filter(function (p) { return !used[p.img] && !failedImgs[p.img]; });
+      : ALL_PLATES.filter(function (p) {
+          return !used[p.img] && !failedImgs[p.img] && inPool(STATE_BY_LOWER[String(p.state).toLowerCase()], S.pr);
+        });
     var fresh = cands.filter(function (p) { return !usedStates[STATE_BY_LOWER[String(p.state).toLowerCase()]]; });
     var pool = fresh.length ? fresh : cands;
     if (pool.length) {
@@ -425,7 +440,7 @@
   }
 
   function buildChoices(correct, fixed) {
-    var opts = fixed || shuffle([correct].concat(shuffle(STATES.filter(function (s) { return s !== correct; })).slice(0, 3)));
+    var opts = fixed || shuffle([correct].concat(shuffle(activeNames().filter(function (s) { return s !== correct; })).slice(0, 3)));
     clear(el.easy);
     opts.forEach(function (name, i) {
       var b = document.createElement('button');
@@ -575,7 +590,7 @@
     q = q.trim().toLowerCase();
     if (!q) return [];
     var pre = [], sub = [];
-    STATES.forEach(function (s) {
+    activeNames().forEach(function (s) {
       var l = s.toLowerCase();
       if (l.indexOf(q) === 0) pre.push(s);
       else if (l.indexOf(q) > 0) sub.push(s);
@@ -636,7 +651,7 @@
   function trySubmitTyped() {
     if (!S || S.answered || !S.ready) return;
     var exact = STATE_BY_LOWER[el.input.value.trim().toLowerCase()];
-    if (exact) return chooseState(exact);
+    if (exact && activeNames().indexOf(exact) >= 0) return chooseState(exact);
     var m = matches(el.input.value);
     if (m.length === 1) return chooseState(m[0]);
     el.typeMsg.textContent = el.input.value.trim()
@@ -700,7 +715,7 @@
     animateRing(pct);
     el.shareMsg.textContent = '';
     S.shareText = 'I scored ' + score + '/' + total + ' on the US License Plate Quiz (' + DIFF_LABEL[S.diff] +
-      (settings.front ? ', with front-plate questions' : '') + ') ' + pageUrl();
+      (settings.front ? ', with front-plate questions' : '') + (settings.pr ? ', with Puerto Rico' : '') + ') ' + pageUrl();
 
     var r = saveBest(score, total);
     el.bestResult.textContent = r.isBest
@@ -766,6 +781,11 @@
   });
   el.frontToggle.addEventListener('change', function () { settings.front = el.frontToggle.checked; updateBestLine(); });
   el.namesToggle.addEventListener('change', function () { settings.names = el.namesToggle.checked; updateBestLine(); });
+  el.prToggle.addEventListener('change', function () { settings.pr = el.prToggle.checked; updateAllCount(); updateBestLine(); });
+  function updateAllCount() {
+    var n = ALL_PLATES.filter(function (p) { return inPool(STATE_BY_LOWER[String(p.state).toLowerCase()], settings.pr); }).length;
+    el.allCount.textContent = n ? n + ' plates' : 'plates';
+  }
   el.startBtn.addEventListener('click', startRun);
   el.next.addEventListener('click', next);
   el.again.addEventListener('click', startRun);
@@ -838,7 +858,7 @@
 
   // States in alphabetical order, each with its plates: main plate first, then file order.
   function exploreGroups() {
-    return STATES.filter(function (s) { return VERSIONS[s] && VERSIONS[s].length; }).map(function (s) {
+    return NAMES_ALL.filter(function (s) { return VERSIONS[s] && VERSIONS[s].length; }).map(function (s) {
       var vs = VERSIONS[s].slice().sort(function (a, b) { return (b === PRIMARY[s]) - (a === PRIMARY[s]); });
       return { state: s, plates: vs };
     });
@@ -975,7 +995,11 @@
   });
 
   /* ---------- init ---------- */
-  el.allCount.textContent = ALL_PLATES.length ? ALL_PLATES.length + ' plates' : 'plates';
+  updateAllCount();
+  if (!ALL_PLATES.some(function (p) { return EXTRA.indexOf(STATE_BY_LOWER[String(p.state).toLowerCase()]) >= 0; })) {
+    el.prToggle.disabled = true;
+    el.prNote.textContent = 'Not available (no Puerto Rico plates).';
+  }
   var anyFront = ALL_PLATES.some(function (p) { return hasFront(STATE_BY_LOWER[String(p.state).toLowerCase()]); });
   if (!anyFront) {
     el.frontToggle.disabled = true;
